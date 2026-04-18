@@ -1,0 +1,184 @@
+:root {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: #15202b;
+  background:
+    radial-gradient(circle at top, rgba(255, 211, 182, 0.7), transparent 35%),
+    linear-gradient(180deg, #fff9f2 0%, #f5f7fb 100%);
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
+  cursor: pointer;
+  background: #0f766e;
+  color: white;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
+}
+
+.secondary-button {
+  background: #dbe7e4;
+  color: #134e4a;
+}
+
+.danger-button {
+  background: #ef4444;
+}
+
+.app-shell {
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.hero {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #b45309;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hero h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 4.8rem);
+  line-height: 0.95;
+}
+
+.hero-copy {
+  max-width: 55ch;
+  margin-top: 1rem;
+  color: #425466;
+}
+
+.content-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(21, 32, 43, 0.08);
+  border-radius: 28px;
+  padding: 1.5rem;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.panel-heading h2,
+.item-card h3 {
+  margin: 0;
+}
+
+.panel-heading p {
+  margin: 0.35rem 0 0;
+  color: #52606d;
+}
+
+.crud-form,
+.item-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.crud-form label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.crud-form input,
+.crud-form textarea,
+.crud-form select {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid #d5dde5;
+  background: #fff;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.item-card {
+  padding: 1.1rem;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #e7edf3;
+}
+
+.item-card p {
+  color: #52606d;
+}
+
+.item-meta {
+  margin-bottom: 0.75rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.status-planned {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.status-in-progress {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-done {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+@media (max-width: 860px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero h1 {
+    max-width: 11ch;
+  }
+}
