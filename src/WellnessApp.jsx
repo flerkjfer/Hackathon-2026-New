@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import AccountSetupModal from "./components/AccountSetupModal";
 import HomePage from "./pages/HomePage";
+import JournalPage from "./pages/JournalPage";
 import LoginPage from "./pages/LoginPage";
 import MindMapPage from "./pages/MindMapPage";
 import TodoListPage from "./pages/TodoListPage";
 import {
   accountsKey,
   demoCredentials,
+  journalEntriesKeyPrefix,
   mentalMeterKeyPrefix,
   onboardingKeyPrefix,
   quoteOptions,
@@ -26,6 +28,7 @@ const profileActionBoost = 0.4;
 const setupCompleteBoost = 1.4;
 const setupReturnBoost = 0.5;
 const todoCompletionBoost = 1.8;
+const journalEntryBoost = 1.8;
 const inactivityPenalty = 5;
 
 function createBaseMeter() {
@@ -155,6 +158,24 @@ function getMentalMeterStage(score) {
   };
 }
 
+function getJournalEntriesKey(email) {
+  return `${journalEntriesKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getJournalRecord(email) {
+  const savedRecord = window.localStorage.getItem(getJournalEntriesKey(email));
+  return savedRecord
+    ? JSON.parse(savedRecord)
+    : {
+        entries: {},
+        lastEntryDate: "",
+      };
+}
+
+function saveJournalRecord(email, record) {
+  window.localStorage.setItem(getJournalEntriesKey(email), JSON.stringify(record));
+}
+
 function getAccounts() {
   const savedAccounts = window.localStorage.getItem(accountsKey);
   return savedAccounts ? JSON.parse(savedAccounts) : {};
@@ -193,6 +214,12 @@ function WellnessApp() {
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("home");
+  const [journalEntry, setJournalEntry] = useState("");
+  const [selectedJournalDate, setSelectedJournalDate] = useState(getTodayStamp());
+  const [journalRecord, setJournalRecord] = useState({
+    entries: {},
+    lastEntryDate: "",
+  });
   const [mentalMeter, setMentalMeter] = useState(() => {
     const baseMeter = createBaseMeter();
     return {
@@ -215,6 +242,10 @@ function WellnessApp() {
       setNeedsAccountSetup(!onboardingRecord?.completed);
       setShowSetupModal(!onboardingRecord);
       setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+      const nextJournalRecord = getJournalRecord(sessionUser.email);
+      setJournalRecord(nextJournalRecord);
+      setSelectedJournalDate(getTodayStamp());
+      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
       const meterRecord = recordLoginActivity(sessionUser.email);
       setMentalMeter({
         ...meterRecord,
@@ -240,6 +271,10 @@ function WellnessApp() {
     setNeedsAccountSetup(!onboardingRecord?.completed);
     setShowSetupModal(!onboardingRecord);
     setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    const nextJournalRecord = getJournalRecord(sessionUser.email);
+    setJournalRecord(nextJournalRecord);
+    setSelectedJournalDate(getTodayStamp());
+    setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
     const meterRecord = recordLoginActivity(sessionUser.email);
     setMentalMeter({
       ...meterRecord,
@@ -339,6 +374,12 @@ function WellnessApp() {
     setShowSetupModal(false);
     setNeedsAccountSetup(false);
     setSetupForm(emptySetupForm);
+    setJournalEntry("");
+    setSelectedJournalDate(getTodayStamp());
+    setJournalRecord({
+      entries: {},
+      lastEntryDate: "",
+    });
     setMentalMeter({
       ...createBaseMeter(),
       stage: getMentalMeterStage(createBaseMeter().score),
@@ -357,6 +398,17 @@ function WellnessApp() {
     if (actionIdOrLabel === "todo-list") {
       boostMentalMeter(homeActionBoost, "Opened to do list");
       setCurrentScreen("todo");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "journal") {
+      const nextJournalRecord = getJournalRecord(user.email);
+      setJournalRecord(nextJournalRecord);
+      setSelectedJournalDate(getTodayStamp());
+      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      boostMentalMeter(homeActionBoost, "Opened journal");
+      setCurrentScreen("journal");
       setShowProfileMenu(false);
       return;
     }
@@ -429,6 +481,62 @@ function WellnessApp() {
     boostMentalMeter(setupCompleteBoost, "Completed account setup");
   };
 
+  const handleJournalChange = (event) => {
+    setJournalEntry(event.target.value);
+  };
+
+  const handleJournalDateSelect = (date) => {
+    if (!user || !date) {
+      return;
+    }
+
+    const nextJournalRecord = getJournalRecord(user.email);
+    setJournalRecord(nextJournalRecord);
+    setSelectedJournalDate(date);
+    setJournalEntry(nextJournalRecord.entries[date] ?? "");
+  };
+
+  const handleJournalSave = () => {
+    if (!user) {
+      return;
+    }
+
+    const trimmedEntry = journalEntry.trim();
+
+    if (!trimmedEntry) {
+      setHomeMessage("Write a few thoughts first so your journal entry can be saved.");
+      return;
+    }
+
+    const entryDate = selectedJournalDate || getTodayStamp();
+    const currentJournalRecord = getJournalRecord(user.email);
+    const alreadySavedForDate = Boolean(currentJournalRecord.entries[entryDate]?.trim());
+    const updatedJournalRecord = {
+      ...currentJournalRecord,
+      entries: {
+        ...currentJournalRecord.entries,
+        [entryDate]: trimmedEntry,
+      },
+      lastEntryDate:
+        !currentJournalRecord.lastEntryDate || entryDate > currentJournalRecord.lastEntryDate
+          ? entryDate
+          : currentJournalRecord.lastEntryDate,
+    };
+
+    saveJournalRecord(user.email, updatedJournalRecord);
+    setJournalRecord(updatedJournalRecord);
+    setJournalEntry(trimmedEntry);
+    setHomeMessage(
+      alreadySavedForDate
+        ? `Journal entry for ${entryDate} was updated.`
+        : `Journal entry for ${entryDate} was saved.`
+    );
+
+    if (entryDate === getTodayStamp() && !alreadySavedForDate) {
+      boostMentalMeter(journalEntryBoost, "Completed a daily journal entry");
+    }
+  };
+
   if (!user) {
     return (
       <LoginPage
@@ -468,6 +576,18 @@ function WellnessApp() {
       ) : currentScreen === "mindmaps" ? (
         <MindMapPage
           onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+          user={user}
+        />
+      ) : currentScreen === "journal" ? (
+        <JournalPage
+          journalEntry={journalEntry}
+          journalRecord={journalRecord}
+          selectedJournalDate={selectedJournalDate}
+          onBackHome={() => setCurrentScreen("home")}
+          onJournalChange={handleJournalChange}
+          onJournalDateSelect={handleJournalDateSelect}
+          onJournalSave={handleJournalSave}
           onLogout={handleLogout}
           user={user}
         />

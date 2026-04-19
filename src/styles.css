@@ -708,6 +708,174 @@ button:disabled {
   color: #f8fafc;
 }
 
+.journal-viewport {
+  position: relative;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.journal-surface {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 4rem);
+}
+
+.journal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 320px;
+  gap: 1.5rem;
+}
+
+.journal-editor,
+.journal-sidecard {
+  padding: 1.5rem;
+  border-radius: 32px;
+  align-self: start;
+}
+
+.journal-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.journal-header-controls {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
+.journal-page-header h2,
+.journal-sidecard h3 {
+  margin-top: 0;
+}
+
+.journal-date-picker {
+  display: grid;
+  gap: 0.45rem;
+  color: #dbeafe;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.journal-date-picker input {
+  min-width: 180px;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.journal-day-badge {
+  margin: 0;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #dbeafe;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.journal-page-textarea {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 1.2rem 1.15rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  resize: vertical;
+  min-height: 360px;
+  line-height: 1.6;
+}
+
+.journal-actions {
+  margin-top: 1rem;
+}
+
+.journal-collection-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.journal-collection-card {
+  padding: 0.9rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.journal-collection-card span,
+.journal-collection-card strong {
+  display: block;
+}
+
+.journal-collection-card span {
+  color: #dbeafe;
+  font-size: 0.8rem;
+}
+
+.journal-collection-card strong {
+  margin-top: 0.3rem;
+}
+
+.journal-entry-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.journal-entry-button {
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.journal-entry-button strong,
+.journal-entry-button span {
+  display: block;
+}
+
+.journal-entry-button span {
+  margin-top: 0.35rem;
+  color: #dbeafe;
+  font-size: 0.9rem;
+}
+
+.journal-entry-button-active {
+  background: rgba(15, 118, 110, 0.78);
+  border-color: rgba(94, 234, 212, 0.55);
+}
+
+.journal-selected-preview,
+.journal-tip-card {
+  margin-top: 1.2rem;
+  padding: 1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.journal-selected-preview h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.journal-selected-preview p {
+  margin: 0.6rem 0 0;
+  color: #dbeafe;
+  white-space: pre-wrap;
+}
+
 .mindmap-viewport {
   position: relative;
   min-height: 100vh;
@@ -1011,6 +1179,11 @@ button:disabled {
   padding-right: 2.5rem;
 }
 
+.todo-create-form select option {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
 .todo-add-button {
   width: 100%;
   min-height: 50px;
@@ -1138,6 +1311,7 @@ button:disabled {
 }
 
 @media (max-width: 1100px) {
+  .journal-layout,
   .mindmap-layout,
   .todo-layout {
     grid-template-columns: 1fr;
@@ -1169,6 +1343,7 @@ button:disabled {
     padding: 1rem;
   }
 
+  .journal-viewport,
   .mindmap-viewport {
     padding: 1rem;
   }
@@ -1193,5 +1368,17 @@ button:disabled {
 @media (max-width: 640px) {
   .mental-meter-topline {
     flex-direction: column;
+  }
+
+  .journal-page-header {
+    flex-direction: column;
+  }
+
+  .journal-header-controls {
+    justify-items: start;
+  }
+
+  .journal-collection-summary {
+    grid-template-columns: 1fr;
   }
 }

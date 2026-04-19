@@ -2,6 +2,7 @@ export const sessionKey = "wellness-user-session";
 export const accountsKey = "wellness-user-accounts";
 export const onboardingKeyPrefix = "wellness-user-onboarding";
 export const mentalMeterKeyPrefix = "wellness-user-mental-meter";
+export const journalEntriesKeyPrefix = "wellness-user-journal";
 
 export const demoCredentials = {
   email: "guest@example.com",
@@ -11,8 +12,8 @@ export const demoCredentials = {
 
 export const homeActions = [
   { id: "mind-maps", label: "Mind Maps" },
+  { id: "journal", label: "Journal" },
   { id: "todo-list", label: "To Do List" },
-  { id: "button-3", label: "Button 3" },
   { id: "button-4", label: "Button 4" },
   { id: "button-5", label: "Button 5" },
   { id: "button-6", label: "Button 6" },
