@@ -25,6 +25,11 @@ select {
   font: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: rgba(226, 232, 240, 0.82);
+}
+
 button {
   border: 0;
   border-radius: 999px;
@@ -135,6 +140,43 @@ button:disabled {
   margin: 0;
   color: #fecaca;
   font-weight: 600;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(3, 7, 18, 0.48);
+  backdrop-filter: blur(10px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(100%, 560px);
+  padding: 1.75rem;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(20px);
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  text-transform: uppercase;
 }
 
 .home-viewport {
@@ -582,6 +624,10 @@ button:disabled {
 
   .home-viewport {
     padding: 1rem;
+  }
+
+  .modal-card {
+    padding: 1.25rem;
   }
 
   .hero h1 {

@@ -2,6 +2,8 @@ import { homeActions } from "../data/appData";
 
 function HomePage({
   homeMessage,
+  needsAccountSetup,
+  onCompleteAccountSetup,
   onHomeAction,
   onLogout,
   onToggleProfileMenu,
@@ -33,6 +35,11 @@ function HomePage({
 
               {showProfileMenu ? (
                 <div className="profile-menu">
+                  {needsAccountSetup ? (
+                    <button type="button" className="menu-button" onClick={onCompleteAccountSetup}>
+                      Finish setting up account
+                    </button>
+                  ) : null}
                   <button type="button" className="menu-button" onClick={() => onHomeAction("Settings")}>
                     Settings
                   </button>

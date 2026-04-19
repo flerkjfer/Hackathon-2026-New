@@ -1,7 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
+import AccountSetupModal from "./components/AccountSetupModal";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import { demoCredentials, quoteOptions, sessionKey } from "./data/appData";
+import {
+  accountsKey,
+  demoCredentials,
+  onboardingKeyPrefix,
+  quoteOptions,
+  sessionKey,
+} from "./data/appData";
+
+const emptySetupForm = {
+  birthDate: "",
+  location: "",
+  gender: "",
+  occupation: "",
+};
+
+function getAccounts() {
+  const savedAccounts = window.localStorage.getItem(accountsKey);
+  return savedAccounts ? JSON.parse(savedAccounts) : {};
+}
+
+function saveAccounts(accounts) {
+  window.localStorage.setItem(accountsKey, JSON.stringify(accounts));
+}
+
+function getOnboardingKey(email) {
+  return `${onboardingKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getOnboardingRecord(email) {
+  const savedRecord = window.localStorage.getItem(getOnboardingKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveOnboardingRecord(email, record) {
+  window.localStorage.setItem(getOnboardingKey(email), JSON.stringify(record));
+}
 
 function WellnessApp() {
   const [authMode, setAuthMode] = useState("login");
@@ -15,6 +51,9 @@ function WellnessApp() {
   const [user, setUser] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [homeMessage, setHomeMessage] = useState("Welcome back. Click any button for a quick sanity check.");
+  const [setupForm, setSetupForm] = useState(emptySetupForm);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
 
   const quote = useMemo(() => {
     const index = Math.floor(Math.random() * quoteOptions.length);
@@ -24,7 +63,12 @@ function WellnessApp() {
   useEffect(() => {
     const savedSession = window.localStorage.getItem(sessionKey);
     if (savedSession) {
-      setUser(JSON.parse(savedSession));
+      const sessionUser = JSON.parse(savedSession);
+      setUser(sessionUser);
+      const onboardingRecord = getOnboardingRecord(sessionUser.email);
+      setNeedsAccountSetup(!onboardingRecord?.completed);
+      setShowSetupModal(!onboardingRecord);
+      setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
     }
   }, []);
 
@@ -41,6 +85,10 @@ function WellnessApp() {
     window.localStorage.setItem(sessionKey, JSON.stringify(sessionUser));
     setError("");
     setShowProfileMenu(false);
+    const onboardingRecord = getOnboardingRecord(sessionUser.email);
+    setNeedsAccountSetup(!onboardingRecord?.completed);
+    setShowSetupModal(!onboardingRecord);
+    setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
   };
 
   const handleSubmit = (event) => {
@@ -67,18 +115,44 @@ function WellnessApp() {
         return;
       }
 
-      persistSession({
+      const accounts = getAccounts();
+      const normalizedEmail = form.email.trim().toLowerCase();
+
+      if (accounts[normalizedEmail]) {
+        setError("An account with that email already exists.");
+        return;
+      }
+
+      const newUser = {
         name: form.name.trim(),
-        email: form.email.trim(),
+        email: normalizedEmail,
+      };
+
+      accounts[normalizedEmail] = {
+        ...newUser,
+        password: form.password,
+      };
+      saveAccounts(accounts);
+      persistSession(newUser);
+      return;
+    }
+
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const accounts = getAccounts();
+    const savedAccount = accounts[normalizedEmail];
+    const isDemoLogin =
+      normalizedEmail === demoCredentials.email && form.password === demoCredentials.password;
+
+    if (savedAccount && savedAccount.password === form.password) {
+      persistSession({
+        name: savedAccount.name,
+        email: savedAccount.email,
       });
       return;
     }
 
-    if (
-      form.email.trim().toLowerCase() !== demoCredentials.email ||
-      form.password !== demoCredentials.password
-    ) {
-      setError("Use the demo login shown below to enter the app.");
+    if (!isDemoLogin) {
+      setError("Use the demo login shown below or sign up with a new account.");
       return;
     }
 
@@ -91,12 +165,72 @@ function WellnessApp() {
   const handleLogout = () => {
     setUser(null);
     setShowProfileMenu(false);
+    setShowSetupModal(false);
+    setNeedsAccountSetup(false);
+    setSetupForm(emptySetupForm);
     window.localStorage.removeItem(sessionKey);
   };
 
   const handleHomeAction = (label) => {
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
+  };
+
+  const handleSetupChange = (event) => {
+    const { name, value } = event.target;
+    setSetupForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSetupClose = () => {
+    if (!user) {
+      return;
+    }
+
+    const existingRecord = getOnboardingRecord(user.email);
+
+    if (!existingRecord) {
+      saveOnboardingRecord(user.email, {
+        completed: false,
+        skipped: true,
+        profile: null,
+      });
+    } else if (!existingRecord.completed) {
+      saveOnboardingRecord(user.email, {
+        ...existingRecord,
+        skipped: true,
+      });
+    }
+
+    setNeedsAccountSetup(true);
+    setShowSetupModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage("Account setup skipped for now. You can finish it later from the avatar menu.");
+  };
+
+  const handleSetupSubmit = (event) => {
+    event.preventDefault();
+
+    const isComplete = Object.values(setupForm).every((value) => value.trim() !== "");
+    if (!isComplete || !user) {
+      setHomeMessage("Please complete all account setup questions before saving.");
+      return;
+    }
+
+    saveOnboardingRecord(user.email, {
+      completed: true,
+      skipped: false,
+      profile: setupForm,
+    });
+
+    setNeedsAccountSetup(false);
+    setShowSetupModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage("Account setup complete.");
   };
 
   if (!user) {
@@ -116,15 +250,32 @@ function WellnessApp() {
   }
 
   return (
-    <HomePage
-      homeMessage={homeMessage}
-      onHomeAction={handleHomeAction}
-      onLogout={handleLogout}
-      onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
-      quote={quote}
-      showProfileMenu={showProfileMenu}
-      user={user}
-    />
+    <>
+      <HomePage
+        homeMessage={homeMessage}
+        needsAccountSetup={needsAccountSetup}
+        onCompleteAccountSetup={() => {
+          const onboardingRecord = getOnboardingRecord(user.email);
+          setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+          setShowSetupModal(true);
+          setShowProfileMenu(false);
+        }}
+        onHomeAction={handleHomeAction}
+        onLogout={handleLogout}
+        onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
+        quote={quote}
+        showProfileMenu={showProfileMenu}
+        user={user}
+      />
+      {showSetupModal ? (
+        <AccountSetupModal
+          form={setupForm}
+          onChange={handleSetupChange}
+          onClose={handleSetupClose}
+          onSubmit={handleSetupSubmit}
+        />
+      ) : null}
+    </>
   );
 }
 
