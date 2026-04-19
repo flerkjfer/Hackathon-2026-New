@@ -5,8 +5,10 @@ function HomePage({
   mentalMeter,
   needsAccountSetup,
   onCompleteAccountSetup,
+  onEditAccount,
   onHomeAction,
   onLogout,
+  onOpenSettings,
   onToggleProfileMenu,
   quote,
   showProfileMenu,
@@ -36,19 +38,15 @@ function HomePage({
 
               {showProfileMenu ? (
                 <div className="profile-menu">
-                  {needsAccountSetup ? (
-                    <button type="button" className="menu-button" onClick={onCompleteAccountSetup}>
-                      Finish setting up account
-                    </button>
-                  ) : null}
-                  <button type="button" className="menu-button" onClick={() => onHomeAction("Settings")}>
+                  <button
+                    type="button"
+                    className="menu-button"
+                    onClick={needsAccountSetup ? onCompleteAccountSetup : onEditAccount}
+                  >
+                    {needsAccountSetup ? "Finish setting up account" : "View / edit account"}
+                  </button>
+                  <button type="button" className="menu-button" onClick={onOpenSettings}>
                     Settings
-                  </button>
-                  <button type="button" className="menu-button" onClick={() => onHomeAction("Guest user")}>
-                    Guest user
-                  </button>
-                  <button type="button" className="menu-button" onClick={() => onHomeAction("Random")}>
-                    Random
                   </button>
                   <button type="button" className="menu-button" onClick={onLogout}>
                     Log out

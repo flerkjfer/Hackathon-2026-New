@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AccountSetupModal from "./components/AccountSetupModal";
+import SettingsModal from "./components/SettingsModal";
 import HomePage from "./pages/HomePage";
 import JournalPage from "./pages/JournalPage";
 import LoginPage from "./pages/LoginPage";
@@ -12,6 +13,7 @@ import {
   mentalMeterKeyPrefix,
   onboardingKeyPrefix,
   quoteOptions,
+  settingsKeyPrefix,
   sessionKey,
 } from "./data/appData";
 
@@ -30,6 +32,11 @@ const setupReturnBoost = 0.5;
 const todoCompletionBoost = 1.8;
 const journalEntryBoost = 1.8;
 const inactivityPenalty = 5;
+
+const defaultSettings = {
+  cornerStyle: "rounded",
+  calmMode: false,
+};
 
 function createBaseMeter() {
   return {
@@ -198,6 +205,19 @@ function saveOnboardingRecord(email, record) {
   window.localStorage.setItem(getOnboardingKey(email), JSON.stringify(record));
 }
 
+function getSettingsKey(email) {
+  return `${settingsKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getUserSettings(email) {
+  const savedSettings = window.localStorage.getItem(getSettingsKey(email));
+  return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
+}
+
+function saveUserSettings(email, settings) {
+  window.localStorage.setItem(getSettingsKey(email), JSON.stringify(settings));
+}
+
 function WellnessApp() {
   const [authMode, setAuthMode] = useState("login");
   const [form, setForm] = useState({
@@ -212,7 +232,11 @@ function WellnessApp() {
   const [homeMessage, setHomeMessage] = useState("Welcome back. Click any button for a quick sanity check.");
   const [setupForm, setSetupForm] = useState(emptySetupForm);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
+  const [userSettings, setUserSettings] = useState(defaultSettings);
+  const [displayName, setDisplayName] = useState("");
   const [currentScreen, setCurrentScreen] = useState("home");
   const [journalEntry, setJournalEntry] = useState("");
   const [selectedJournalDate, setSelectedJournalDate] = useState(getTodayStamp());
@@ -242,6 +266,8 @@ function WellnessApp() {
       setNeedsAccountSetup(!onboardingRecord?.completed);
       setShowSetupModal(!onboardingRecord);
       setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+      setUserSettings(getUserSettings(sessionUser.email));
+      setDisplayName(sessionUser.name ?? "");
       const nextJournalRecord = getJournalRecord(sessionUser.email);
       setJournalRecord(nextJournalRecord);
       setSelectedJournalDate(getTodayStamp());
@@ -253,6 +279,12 @@ function WellnessApp() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("calm-mode", userSettings.calmMode);
+    document.body.classList.toggle("ui-sharp", userSettings.cornerStyle === "sharp");
+    document.body.classList.toggle("ui-rounded", userSettings.cornerStyle === "rounded");
+  }, [userSettings]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -271,6 +303,8 @@ function WellnessApp() {
     setNeedsAccountSetup(!onboardingRecord?.completed);
     setShowSetupModal(!onboardingRecord);
     setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    setUserSettings(getUserSettings(sessionUser.email));
+    setDisplayName(sessionUser.name ?? "");
     const nextJournalRecord = getJournalRecord(sessionUser.email);
     setJournalRecord(nextJournalRecord);
     setSelectedJournalDate(getTodayStamp());
@@ -372,8 +406,12 @@ function WellnessApp() {
     setCurrentScreen("home");
     setShowProfileMenu(false);
     setShowSetupModal(false);
+    setShowAccountModal(false);
+    setShowSettingsModal(false);
     setNeedsAccountSetup(false);
     setSetupForm(emptySetupForm);
+    setUserSettings(defaultSettings);
+    setDisplayName("");
     setJournalEntry("");
     setSelectedJournalDate(getTodayStamp());
     setJournalRecord({
@@ -385,6 +423,77 @@ function WellnessApp() {
       stage: getMentalMeterStage(createBaseMeter().score),
     });
     window.localStorage.removeItem(sessionKey);
+  };
+
+  const handleAccountEditOpen = () => {
+    const onboardingRecord = getOnboardingRecord(user.email);
+    setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    setDisplayName(user.name ?? "");
+    setShowAccountModal(true);
+    setShowProfileMenu(false);
+    boostMentalMeter(profileActionBoost, "Opened account details");
+  };
+
+  const handleAccountEditClose = () => {
+    setShowAccountModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+  };
+
+  const handleAccountEditSubmit = (event) => {
+    event.preventDefault();
+
+    const nextDisplayName = displayName.trim() || user.name;
+    const accounts = getAccounts();
+    const normalizedEmail = user.email.toLowerCase();
+    const currentAccount = accounts[normalizedEmail] ?? {
+      name: user.name,
+      email: normalizedEmail,
+      password: normalizedEmail === demoCredentials.email ? demoCredentials.password : "",
+    };
+
+    accounts[normalizedEmail] = {
+      ...currentAccount,
+      name: nextDisplayName,
+    };
+    saveAccounts(accounts);
+    const sessionUser = { ...user, name: nextDisplayName };
+    setUser(sessionUser);
+    window.localStorage.setItem(sessionKey, JSON.stringify(sessionUser));
+
+    const isComplete = Object.values(setupForm).every((value) => value.trim() !== "");
+    saveOnboardingRecord(user.email, {
+      completed: isComplete,
+      skipped: !isComplete,
+      profile: setupForm,
+    });
+
+    setNeedsAccountSetup(!isComplete);
+    setShowAccountModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage(isComplete ? "Account details updated." : "Account details saved. Finish later anytime.");
+    boostMentalMeter(profileActionBoost, "Updated account details");
+  };
+
+  const handleSettingsOpen = () => {
+    setShowSettingsModal(true);
+    setShowProfileMenu(false);
+    boostMentalMeter(profileActionBoost, "Opened settings");
+  };
+
+  const handleSettingsClose = () => {
+    setShowSettingsModal(false);
+    setShowProfileMenu(false);
+  };
+
+  const handleSettingsSubmit = (event) => {
+    event.preventDefault();
+    saveUserSettings(user.email, userSettings);
+    setShowSettingsModal(false);
+    setShowProfileMenu(false);
+    setHomeMessage("Settings saved.");
+    boostMentalMeter(profileActionBoost, "Saved settings");
   };
 
   const handleHomeAction = (actionIdOrLabel, actionLabel) => {
@@ -565,8 +674,10 @@ function WellnessApp() {
             setShowSetupModal(true);
             setShowProfileMenu(false);
           }}
+          onEditAccount={handleAccountEditOpen}
           onHomeAction={handleHomeAction}
           onLogout={handleLogout}
+          onOpenSettings={handleSettingsOpen}
           onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
           quote={quote}
           showProfileMenu={showProfileMenu}
@@ -607,6 +718,35 @@ function WellnessApp() {
           onChange={handleSetupChange}
           onClose={handleSetupClose}
           onSubmit={handleSetupSubmit}
+        />
+      ) : null}
+      {showAccountModal ? (
+        <AccountSetupModal
+          form={setupForm}
+          onChange={handleSetupChange}
+          onClose={handleAccountEditClose}
+          onSubmit={handleAccountEditSubmit}
+          title="Your account"
+          description="View and update your profile details anytime."
+          closeLabel="Close"
+        >
+          <label>
+            Display name
+            <input
+              type="text"
+              value={displayName}
+              placeholder="What should we call you?"
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </label>
+        </AccountSetupModal>
+      ) : null}
+      {showSettingsModal ? (
+        <SettingsModal
+          settings={userSettings}
+          onChange={(patch) => setUserSettings((current) => ({ ...current, ...patch }))}
+          onClose={handleSettingsClose}
+          onSubmit={handleSettingsSubmit}
         />
       ) : null}
     </>

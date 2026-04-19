@@ -3,6 +3,7 @@ export const accountsKey = "wellness-user-accounts";
 export const onboardingKeyPrefix = "wellness-user-onboarding";
 export const mentalMeterKeyPrefix = "wellness-user-mental-meter";
 export const journalEntriesKeyPrefix = "wellness-user-journal";
+export const settingsKeyPrefix = "wellness-user-settings";
 
 export const demoCredentials = {
   email: "guest@example.com",

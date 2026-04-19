@@ -18,6 +18,24 @@ body {
       center center / cover no-repeat fixed;
 }
 
+body.calm-mode {
+  filter: brightness(0.92) saturate(0.88);
+}
+
+body.ui-sharp button,
+body.ui-sharp input,
+body.ui-sharp textarea,
+body.ui-sharp select,
+body.ui-sharp .glass-card,
+body.ui-sharp .home-rail,
+body.ui-sharp .rail-button,
+body.ui-sharp .rail-button-inner,
+body.ui-sharp .modal-card,
+body.ui-sharp .profile-button,
+body.ui-sharp .profile-menu {
+  border-radius: 10px;
+}
+
 button,
 input,
 textarea,
@@ -297,12 +315,14 @@ button:disabled {
 
 .profile-menu-wrap {
   position: relative;
+  z-index: 10;
 }
 
 .profile-menu {
   position: absolute;
   top: 78px;
   right: 0;
+  z-index: 11;
   display: grid;
   gap: 0.65rem;
   min-width: 210px;
