@@ -1,19 +1,18 @@
 function JournalPage({
-  journalEntry,
-  journalRecord,
-  selectedJournalDate,
+  activeJournalId,
+  journalSavedAt,
+  journalText,
+  journalTitle,
+  journals,
   onBackHome,
   onJournalChange,
-  onJournalDateSelect,
+  onJournalNew,
   onJournalSave,
+  onJournalSelect,
+  onJournalTitleChange,
   onLogout,
   user,
 }) {
-  const savedEntryDates = Object.keys(journalRecord.entries).sort((left, right) =>
-    left < right ? 1 : -1
-  );
-  const selectedEntryPreview = selectedJournalDate ? journalRecord.entries[selectedJournalDate] ?? "" : "";
-
   return (
     <main className="app-shell">
       <section className="journal-viewport">
@@ -39,99 +38,73 @@ function JournalPage({
             <article className="journal-editor glass-card">
               <div className="journal-page-header">
                 <div>
-                  <p className="feature-label">Daily check-in</p>
+                  <p className="feature-label">Journal</p>
                   <h2>{user.name}'s journal</h2>
                 </div>
-                <div className="journal-header-controls">
-                  <label className="journal-date-picker">
-                    Entry date
-                    <input
-                      type="date"
-                      value={selectedJournalDate}
-                      onChange={(event) => onJournalDateSelect(event.target.value)}
-                    />
-                  </label>
-                  <p className="journal-day-badge">
-                    {journalRecord.lastEntryDate
-                      ? `Last saved: ${journalRecord.lastEntryDate}`
-                      : "No entries yet"}
-                  </p>
-                </div>
+                {journalSavedAt ? (
+                  <p className="journal-day-badge">Saved {new Date(journalSavedAt).toLocaleString()}</p>
+                ) : null}
               </div>
 
               <p className="small-note">
-                Aim for one honest entry a day. If a full week goes by without writing, the mental meter eases down
-                slowly until you check in again.
+                These journals are just saved notes for the demo. Give each one a title, write whatever you want, and
+                hit Save.
               </p>
+
+              <label className="journal-title-field top-gap">
+                Title
+                <input
+                  type="text"
+                  value={journalTitle}
+                  onChange={onJournalTitleChange}
+                  placeholder="Name this journal"
+                />
+              </label>
 
               <textarea
                 className="journal-page-textarea"
-                name="journalEntry"
-                value={journalEntry}
+                name="journalText"
+                value={journalText}
                 onChange={onJournalChange}
-                placeholder="What are you feeling today? What happened, what felt heavy, and what helped?"
+                placeholder="Type your note here"
                 rows="14"
               />
 
               <div className="button-row journal-actions">
+                <button type="button" className="secondary-button" onClick={onJournalNew}>
+                  New journal
+                </button>
                 <button type="button" onClick={onJournalSave}>
-                  Save entry
+                  Save journal
                 </button>
               </div>
             </article>
 
             <aside className="journal-sidecard glass-card">
-              <p className="feature-label">Saved entries</p>
-              <h3>Browse your collection.</h3>
-              <p className="small-note">
-                Every saved entry stays in your journal history so you can reopen it, reflect on it, and update it
-                later.
-              </p>
-              <div className="journal-collection-summary">
-                <div className="journal-collection-card">
-                  <span>Total saved</span>
-                  <strong>{savedEntryDates.length}</strong>
-                </div>
-                <div className="journal-collection-card">
-                  <span>Selected date</span>
-                  <strong>{selectedJournalDate || "None"}</strong>
-                </div>
-              </div>
-              <div className="journal-entry-list">
-                {savedEntryDates.length === 0 ? (
+              <p className="feature-label">Journals</p>
+              <h3>Your saved notes.</h3>
+              <p className="small-note">Create multiple journals and swap between them.</p>
+
+              <div className="journal-entry-list top-gap">
+                {journals.length === 0 ? (
                   <div className="journal-tip-card">
-                    <strong>No saved entries yet</strong>
-                    <span>Your first saved entry will show up here.</span>
+                    <strong>No journals yet</strong>
+                    <span>Create one with “New journal”.</span>
                   </div>
                 ) : (
-                  savedEntryDates.map((entryDate) => (
+                  journals.map((journal) => (
                     <button
-                      key={entryDate}
+                      key={journal.id}
                       type="button"
                       className={`journal-entry-button ${
-                        entryDate === selectedJournalDate ? "journal-entry-button-active" : ""
+                        journal.id === activeJournalId ? "journal-entry-button-active" : ""
                       }`}
-                      onClick={() => onJournalDateSelect(entryDate)}
+                      onClick={() => onJournalSelect(journal.id)}
                     >
-                      <strong>{entryDate}</strong>
-                      <span>{journalRecord.entries[entryDate].slice(0, 72)}</span>
+                      <strong>{journal.title || "Journal"}</strong>
+                      <span>{(journal.text ?? "").slice(0, 72)}</span>
                     </button>
                   ))
-                )}
-              </div>
-
-              <div className="journal-selected-preview">
-                <p className="feature-label">Selected entry</p>
-                {selectedEntryPreview ? (
-                  <>
-                    <h4>{selectedJournalDate}</h4>
-                    <p>{selectedEntryPreview}</p>
-                  </>
-                ) : (
-                  <>
-                    <h4>No saved entry selected</h4>
-                    <p>Choose a date from your saved collection to read it here and load it into the editor.</p>
-                  </>
                 )}
               </div>
             </aside>

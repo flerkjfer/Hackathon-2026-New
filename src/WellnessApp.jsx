@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState } from "react";
 import AccountSetupModal from "./components/AccountSetupModal";
 import SettingsModal from "./components/SettingsModal";
 import HomePage from "./pages/HomePage";
@@ -9,7 +9,6 @@ import TodoListPage from "./pages/TodoListPage";
 import {
   accountsKey,
   demoCredentials,
-  journalEntriesKeyPrefix,
   mentalMeterKeyPrefix,
   onboardingKeyPrefix,
   quoteOptions,
@@ -165,22 +164,56 @@ function getMentalMeterStage(score) {
   };
 }
 
-function getJournalEntriesKey(email) {
-  return `${journalEntriesKeyPrefix}:${email.toLowerCase()}`;
+const journalTextKeyPrefix = "wellness-user-journal-text";
+
+const journalsKeyPrefix = "wellness-user-journals";
+
+function getJournalsKey(email) {
+  return `${journalsKeyPrefix}:${email.toLowerCase()}`;
 }
 
-function getJournalRecord(email) {
-  const savedRecord = window.localStorage.getItem(getJournalEntriesKey(email));
-  return savedRecord
-    ? JSON.parse(savedRecord)
-    : {
-        entries: {},
-        lastEntryDate: "",
-      };
+function loadJournals(email) {
+  const saved = window.localStorage.getItem(getJournalsKey(email));
+  if (!saved) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    window.localStorage.removeItem(getJournalsKey(email));
+    return [];
+  }
 }
 
-function saveJournalRecord(email, record) {
-  window.localStorage.setItem(getJournalEntriesKey(email), JSON.stringify(record));
+function saveJournals(email, journals) {
+  window.localStorage.setItem(getJournalsKey(email), JSON.stringify(journals));
+}
+
+function getJournalTextKey(email) {
+  return `${journalTextKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getJournalText(email) {
+  return window.localStorage.getItem(getJournalTextKey(email)) ?? "";
+}
+
+function saveJournalText(email, text) {
+  window.localStorage.setItem(getJournalTextKey(email), text);
+}
+
+function migrateLegacyJournal(email) {
+  const legacyText = getJournalText(email);
+  if (!legacyText.trim()) {
+    return null;
+  }
+  return {
+    id: createId(),
+    title: "Journal 1",
+    text: legacyText,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function getAccounts() {
@@ -218,6 +251,44 @@ function saveUserSettings(email, settings) {
   window.localStorage.setItem(getSettingsKey(email), JSON.stringify(settings));
 }
 
+class ScreenErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main className="app-shell">
+          <section className="home-viewport">
+            <div className="home-overlay" />
+            <section className="home-surface">
+              <div className="glass-card" style={{ padding: "1.5rem", borderRadius: "28px" }}>
+                <h2 style={{ marginTop: 0 }}>That screen crashed</h2>
+                <p className="small-note">Refresh the page or go back home.</p>
+              </div>
+            </section>
+          </section>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function createId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function WellnessApp() {
   const [authMode, setAuthMode] = useState("login");
   const [form, setForm] = useState({
@@ -238,12 +309,11 @@ function WellnessApp() {
   const [userSettings, setUserSettings] = useState(defaultSettings);
   const [displayName, setDisplayName] = useState("");
   const [currentScreen, setCurrentScreen] = useState("home");
-  const [journalEntry, setJournalEntry] = useState("");
-  const [selectedJournalDate, setSelectedJournalDate] = useState(getTodayStamp());
-  const [journalRecord, setJournalRecord] = useState({
-    entries: {},
-    lastEntryDate: "",
-  });
+  const [journals, setJournals] = useState([]);
+  const [activeJournalId, setActiveJournalId] = useState(null);
+  const [journalTitle, setJournalTitle] = useState("");
+  const [journalText, setJournalText] = useState("");
+  const [journalSavedAt, setJournalSavedAt] = useState("");
   const [mentalMeter, setMentalMeter] = useState(() => {
     const baseMeter = createBaseMeter();
     return {
@@ -268,10 +338,22 @@ function WellnessApp() {
       setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
       setUserSettings(getUserSettings(sessionUser.email));
       setDisplayName(sessionUser.name ?? "");
-      const nextJournalRecord = getJournalRecord(sessionUser.email);
-      setJournalRecord(nextJournalRecord);
-      setSelectedJournalDate(getTodayStamp());
-      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      const loaded = loadJournals(sessionUser.email);
+      const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(sessionUser.email)].filter(Boolean);
+      if (nextJournals.length > 0 && loaded.length === 0) {
+        saveJournals(sessionUser.email, nextJournals);
+      }
+      setJournals(nextJournals);
+      if (nextJournals.length > 0) {
+        setActiveJournalId(nextJournals[0].id);
+        setJournalTitle(nextJournals[0].title ?? "");
+        setJournalText(nextJournals[0].text ?? "");
+      } else {
+        setActiveJournalId(null);
+        setJournalTitle("");
+        setJournalText("");
+      }
+      setJournalSavedAt("");
       const meterRecord = recordLoginActivity(sessionUser.email);
       setMentalMeter({
         ...meterRecord,
@@ -305,10 +387,22 @@ function WellnessApp() {
     setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
     setUserSettings(getUserSettings(sessionUser.email));
     setDisplayName(sessionUser.name ?? "");
-    const nextJournalRecord = getJournalRecord(sessionUser.email);
-    setJournalRecord(nextJournalRecord);
-    setSelectedJournalDate(getTodayStamp());
-    setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+    const loaded = loadJournals(sessionUser.email);
+    const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(sessionUser.email)].filter(Boolean);
+    if (nextJournals.length > 0 && loaded.length === 0) {
+      saveJournals(sessionUser.email, nextJournals);
+    }
+    setJournals(nextJournals);
+    if (nextJournals.length > 0) {
+      setActiveJournalId(nextJournals[0].id);
+      setJournalTitle(nextJournals[0].title ?? "");
+      setJournalText(nextJournals[0].text ?? "");
+    } else {
+      setActiveJournalId(null);
+      setJournalTitle("");
+      setJournalText("");
+    }
+    setJournalSavedAt("");
     const meterRecord = recordLoginActivity(sessionUser.email);
     setMentalMeter({
       ...meterRecord,
@@ -412,12 +506,11 @@ function WellnessApp() {
     setSetupForm(emptySetupForm);
     setUserSettings(defaultSettings);
     setDisplayName("");
-    setJournalEntry("");
-    setSelectedJournalDate(getTodayStamp());
-    setJournalRecord({
-      entries: {},
-      lastEntryDate: "",
-    });
+    setJournals([]);
+    setActiveJournalId(null);
+    setJournalTitle("");
+    setJournalText("");
+    setJournalSavedAt("");
     setMentalMeter({
       ...createBaseMeter(),
       stage: getMentalMeterStage(createBaseMeter().score),
@@ -512,10 +605,24 @@ function WellnessApp() {
     }
 
     if (actionIdOrLabel === "journal") {
-      const nextJournalRecord = getJournalRecord(user.email);
-      setJournalRecord(nextJournalRecord);
-      setSelectedJournalDate(getTodayStamp());
-      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      const loaded = loadJournals(user.email);
+      const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(user.email)].filter(Boolean);
+      if (nextJournals.length > 0 && loaded.length === 0) {
+        saveJournals(user.email, nextJournals);
+      }
+      setJournals(nextJournals);
+      if (nextJournals.length > 0) {
+        const active =
+          nextJournals.find((journal) => journal.id === activeJournalId) ?? nextJournals[0];
+        setActiveJournalId(active.id);
+        setJournalTitle(active.title ?? "");
+        setJournalText(active.text ?? "");
+      } else {
+        setActiveJournalId(null);
+        setJournalTitle("");
+        setJournalText("");
+      }
+      setJournalSavedAt("");
       boostMentalMeter(homeActionBoost, "Opened journal");
       setCurrentScreen("journal");
       setShowProfileMenu(false);
@@ -591,18 +698,37 @@ function WellnessApp() {
   };
 
   const handleJournalChange = (event) => {
-    setJournalEntry(event.target.value);
+    setJournalText(event.target.value);
   };
 
-  const handleJournalDateSelect = (date) => {
-    if (!user || !date) {
+  const handleJournalTitleChange = (event) => {
+    setJournalTitle(event.target.value);
+  };
+
+  const handleJournalSelect = (journalId) => {
+    const selected = journals.find((journal) => journal.id === journalId);
+    if (!selected) {
       return;
     }
 
-    const nextJournalRecord = getJournalRecord(user.email);
-    setJournalRecord(nextJournalRecord);
-    setSelectedJournalDate(date);
-    setJournalEntry(nextJournalRecord.entries[date] ?? "");
+    setActiveJournalId(selected.id);
+    setJournalTitle(selected.title ?? "");
+    setJournalText(selected.text ?? "");
+    setJournalSavedAt("");
+  };
+
+  const handleJournalNew = () => {
+    const newId = createId();
+    const now = new Date().toISOString();
+    const nextJournals = [{ id: newId, title: `Journal ${journals.length + 1}`, text: "", updatedAt: now }, ...journals];
+    setJournals(nextJournals);
+    if (user) {
+      saveJournals(user.email, nextJournals);
+    }
+    setActiveJournalId(newId);
+    setJournalTitle(`Journal ${journals.length + 1}`);
+    setJournalText("");
+    setJournalSavedAt("");
   };
 
   const handleJournalSave = () => {
@@ -610,40 +736,28 @@ function WellnessApp() {
       return;
     }
 
-    const trimmedEntry = journalEntry.trim();
+    const now = new Date().toISOString();
+    const trimmedTitle = journalTitle.trim();
+    const titleToSave = trimmedTitle || "Journal";
 
-    if (!trimmedEntry) {
-      setHomeMessage("Write a few thoughts first so your journal entry can be saved.");
-      return;
+    let nextJournals;
+    if (!activeJournalId) {
+      const newId = createId();
+      nextJournals = [{ id: newId, title: titleToSave, text: journalText, updatedAt: now }, ...journals];
+      setActiveJournalId(newId);
+    } else {
+      nextJournals = journals.map((journal) =>
+        journal.id === activeJournalId
+          ? { ...journal, title: titleToSave, text: journalText, updatedAt: now }
+          : journal
+      );
     }
 
-    const entryDate = selectedJournalDate || getTodayStamp();
-    const currentJournalRecord = getJournalRecord(user.email);
-    const alreadySavedForDate = Boolean(currentJournalRecord.entries[entryDate]?.trim());
-    const updatedJournalRecord = {
-      ...currentJournalRecord,
-      entries: {
-        ...currentJournalRecord.entries,
-        [entryDate]: trimmedEntry,
-      },
-      lastEntryDate:
-        !currentJournalRecord.lastEntryDate || entryDate > currentJournalRecord.lastEntryDate
-          ? entryDate
-          : currentJournalRecord.lastEntryDate,
-    };
-
-    saveJournalRecord(user.email, updatedJournalRecord);
-    setJournalRecord(updatedJournalRecord);
-    setJournalEntry(trimmedEntry);
-    setHomeMessage(
-      alreadySavedForDate
-        ? `Journal entry for ${entryDate} was updated.`
-        : `Journal entry for ${entryDate} was saved.`
-    );
-
-    if (entryDate === getTodayStamp() && !alreadySavedForDate) {
-      boostMentalMeter(journalEntryBoost, "Completed a daily journal entry");
-    }
+    setJournals(nextJournals);
+    saveJournals(user.email, nextJournals);
+    setJournalSavedAt(now);
+    setHomeMessage("Journal saved.");
+    boostMentalMeter(journalEntryBoost, "Saved journal");
   };
 
   if (!user) {
@@ -664,54 +778,60 @@ function WellnessApp() {
 
   return (
     <>
-      {currentScreen === "home" ? (
-        <HomePage
-          homeMessage={homeMessage}
-          needsAccountSetup={needsAccountSetup}
-          onCompleteAccountSetup={() => {
-            const onboardingRecord = getOnboardingRecord(user.email);
-            setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
-            setShowSetupModal(true);
-            setShowProfileMenu(false);
-          }}
-          onEditAccount={handleAccountEditOpen}
-          onHomeAction={handleHomeAction}
-          onLogout={handleLogout}
-          onOpenSettings={handleSettingsOpen}
-          onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
-          quote={quote}
-          showProfileMenu={showProfileMenu}
-          user={user}
-          mentalMeter={mentalMeter}
-        />
-      ) : currentScreen === "mindmaps" ? (
-        <MindMapPage
-          onBackHome={() => setCurrentScreen("home")}
-          onLogout={handleLogout}
-          user={user}
-        />
-      ) : currentScreen === "journal" ? (
-        <JournalPage
-          journalEntry={journalEntry}
-          journalRecord={journalRecord}
-          selectedJournalDate={selectedJournalDate}
-          onBackHome={() => setCurrentScreen("home")}
-          onJournalChange={handleJournalChange}
-          onJournalDateSelect={handleJournalDateSelect}
-          onJournalSave={handleJournalSave}
-          onLogout={handleLogout}
-          user={user}
-        />
-      ) : (
-        <TodoListPage
-          onBackHome={() => setCurrentScreen("home")}
-          onLogout={handleLogout}
-          onTaskCompleted={(taskTitle) => {
-            boostMentalMeter(todoCompletionBoost, `Completed task: ${taskTitle}`);
-          }}
-          user={user}
-        />
-      )}
+      <ScreenErrorBoundary>
+        {currentScreen === "home" ? (
+          <HomePage
+            homeMessage={homeMessage}
+            needsAccountSetup={needsAccountSetup}
+            onCompleteAccountSetup={() => {
+              const onboardingRecord = getOnboardingRecord(user.email);
+              setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+              setShowSetupModal(true);
+              setShowProfileMenu(false);
+            }}
+            onEditAccount={handleAccountEditOpen}
+            onHomeAction={handleHomeAction}
+            onLogout={handleLogout}
+            onOpenSettings={handleSettingsOpen}
+            onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
+            quote={quote}
+            showProfileMenu={showProfileMenu}
+            user={user}
+            mentalMeter={mentalMeter}
+          />
+        ) : currentScreen === "mindmaps" ? (
+          <MindMapPage
+            onBackHome={() => setCurrentScreen("home")}
+            onLogout={handleLogout}
+            user={user}
+          />
+        ) : currentScreen === "journal" ? (
+          <JournalPage
+            journals={journals}
+            activeJournalId={activeJournalId}
+            journalTitle={journalTitle}
+            journalText={journalText}
+            journalSavedAt={journalSavedAt}
+            onBackHome={() => setCurrentScreen("home")}
+            onJournalChange={handleJournalChange}
+            onJournalTitleChange={handleJournalTitleChange}
+            onJournalSelect={handleJournalSelect}
+            onJournalNew={handleJournalNew}
+            onJournalSave={handleJournalSave}
+            onLogout={handleLogout}
+            user={user}
+          />
+        ) : (
+          <TodoListPage
+            onBackHome={() => setCurrentScreen("home")}
+            onLogout={handleLogout}
+            onTaskCompleted={(taskTitle) => {
+              boostMentalMeter(todoCompletionBoost, `Completed task: ${taskTitle}`);
+            }}
+            user={user}
+          />
+        )}
+      </ScreenErrorBoundary>
       {showSetupModal ? (
         <AccountSetupModal
           form={setupForm}

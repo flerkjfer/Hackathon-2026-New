@@ -814,7 +814,7 @@ button:disabled {
   margin-top: 0;
 }
 
-.journal-date-picker {
+.journal-title-field {
   display: grid;
   gap: 0.45rem;
   color: #dbeafe;
@@ -822,8 +822,8 @@ button:disabled {
   font-weight: 700;
 }
 
-.journal-date-picker input {
-  min-width: 180px;
+.journal-title-field input {
+  min-width: 220px;
   padding: 0.75rem 0.9rem;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -895,6 +895,18 @@ button:disabled {
   padding-right: 0.2rem;
 }
 
+.journal-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 0.55rem;
+  align-items: stretch;
+}
+
+.journal-entry-row-active .journal-entry-button {
+  background: rgba(15, 118, 110, 0.78);
+  border-color: rgba(94, 234, 212, 0.55);
+}
+
 .journal-entry-button {
   padding: 0.95rem 1rem;
   border-radius: 22px;
@@ -914,9 +926,15 @@ button:disabled {
   font-size: 0.9rem;
 }
 
-.journal-entry-button-active {
-  background: rgba(15, 118, 110, 0.78);
-  border-color: rgba(94, 234, 212, 0.55);
+
+.journal-entry-delete {
+  padding: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .journal-selected-preview,
