@@ -3,6 +3,7 @@ import AccountSetupModal from "./components/AccountSetupModal";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MindMapPage from "./pages/MindMapPage";
+import TodoListPage from "./pages/TodoListPage";
 import {
   accountsKey,
   demoCredentials,
@@ -24,6 +25,8 @@ const homeActionBoost = 0.7;
 const profileActionBoost = 0.4;
 const setupCompleteBoost = 1.4;
 const setupReturnBoost = 0.5;
+const todoCompletionBoost = 1.8;
+const inactivityPenalty = 5;
 
 function createBaseMeter() {
   return {
@@ -105,10 +108,16 @@ function recordLoginActivity(email) {
     return savedRecord;
   }
 
-  const updatedRecord = applyMeterActivity(savedRecord, dailyLoginBoost, "Daily login check-in", {
+  const inactivityDrop = dayDifference > 7 ? inactivityPenalty : 0;
+  const updatedRecord = applyMeterActivity(
+    savedRecord,
+    dailyLoginBoost - inactivityDrop,
+    dayDifference > 7 ? "Returned after a long break" : "Daily login check-in",
+    {
     updateVisitDate: true,
     nextStreak: dayDifference === 1 ? savedRecord.streak + 1 : 1,
-  });
+    }
+  );
 
   saveMentalMeterRecord(email, updatedRecord);
   return updatedRecord;
@@ -337,19 +346,26 @@ function WellnessApp() {
     window.localStorage.removeItem(sessionKey);
   };
 
-  const handleHomeAction = (action) => {
-    if (typeof action === "object" && action.id === "mind-maps") {
+  const handleHomeAction = (actionIdOrLabel, actionLabel) => {
+    if (actionIdOrLabel === "mind-maps") {
       boostMentalMeter(homeActionBoost, "Opened mind maps");
       setCurrentScreen("mindmaps");
       setShowProfileMenu(false);
       return;
     }
 
-    const label = typeof action === "string" ? action : action.label;
+    if (actionIdOrLabel === "todo-list") {
+      boostMentalMeter(homeActionBoost, "Opened to do list");
+      setCurrentScreen("todo");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    const label = actionLabel ?? actionIdOrLabel;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
     boostMentalMeter(
-      typeof action === "string" ? profileActionBoost : homeActionBoost,
+      actionLabel ? homeActionBoost : profileActionBoost,
       `Used ${label}`
     );
   };
@@ -449,10 +465,19 @@ function WellnessApp() {
           user={user}
           mentalMeter={mentalMeter}
         />
-      ) : (
+      ) : currentScreen === "mindmaps" ? (
         <MindMapPage
           onBackHome={() => setCurrentScreen("home")}
           onLogout={handleLogout}
+          user={user}
+        />
+      ) : (
+        <TodoListPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+          onTaskCompleted={(taskTitle) => {
+            boostMentalMeter(todoCompletionBoost, `Completed task: ${taskTitle}`);
+          }}
           user={user}
         />
       )}
