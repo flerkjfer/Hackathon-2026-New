@@ -243,6 +243,7 @@ function getQuestionnaireSummary(score) {
       message:
         "Your answers suggest you may be carrying a heavy mental-health load right now. Reaching out is the first step to getting help.",
       resources: questionnaireResourceItems,
+      meterImpact: -6,
     };
   }
 
@@ -252,6 +253,7 @@ function getQuestionnaireSummary(score) {
       message:
         "Your answers suggest a moderate amount of emotional strain today. It may help to slow down, check in with yourself, and use the support tools available in the app.",
       resources: [],
+      meterImpact: -2,
     };
   }
 
@@ -260,7 +262,18 @@ function getQuestionnaireSummary(score) {
     message:
       "Your answers suggest a lighter level of mental-health strain right now. Keep paying attention to the routines and supports that help you stay grounded.",
     resources: [],
+    meterImpact: 1,
   };
+}
+
+function shouldShowQuestionnaire(questionnaireRecord) {
+  if (!questionnaireRecord?.submittedAt) {
+    return true;
+  }
+
+  const submittedStamp = questionnaireRecord.submittedAt.slice(0, 10);
+  const daysSinceSubmission = getDayDifference(submittedStamp, getTodayStamp());
+  return daysSinceSubmission === null || daysSinceSubmission >= 7;
 }
 
 function WellnessApp() {
@@ -328,7 +341,7 @@ function WellnessApp() {
           : Array(questionnaireItems.length).fill(null)
       );
       setQuestionnaireResult(questionnaireRecord?.result ?? null);
-      setCurrentScreen("questionnaire");
+      setCurrentScreen(shouldShowQuestionnaire(questionnaireRecord) ? "questionnaire" : "home");
       const meterRecord = recordLoginActivity(sessionUser.email);
       setMentalMeter({
         ...meterRecord,
@@ -373,7 +386,7 @@ function WellnessApp() {
         : Array(questionnaireItems.length).fill(null)
     );
     setQuestionnaireResult(questionnaireRecord?.result ?? null);
-    setCurrentScreen("questionnaire");
+    setCurrentScreen(shouldShowQuestionnaire(questionnaireRecord) ? "questionnaire" : "home");
     const meterRecord = recordLoginActivity(sessionUser.email);
     setMentalMeter({
       ...meterRecord,
@@ -388,6 +401,27 @@ function WellnessApp() {
 
     const currentRecord = getMentalMeterRecord(user.email) ?? createBaseMeter();
     const updatedRecord = applyMeterActivity(currentRecord, amount, action);
+    saveMentalMeterRecord(user.email, updatedRecord);
+    setMentalMeter({
+      ...updatedRecord,
+      stage: getMentalMeterStage(updatedRecord.score),
+    });
+  };
+
+  const syncMentalMeterWithQuestionnaire = (nextResult, previousResult) => {
+    if (!user) {
+      return;
+    }
+
+    const previousImpact = previousResult?.meterImpact ?? 0;
+    const adjustment = nextResult.meterImpact - previousImpact;
+    const currentRecord = getMentalMeterRecord(user.email) ?? createBaseMeter();
+    const updatedRecord = applyMeterActivity(
+      currentRecord,
+      adjustment,
+      `Quiz updated: ${nextResult.level}`
+    );
+
     saveMentalMeterRecord(user.email, updatedRecord);
     setMentalMeter({
       ...updatedRecord,
@@ -596,6 +630,18 @@ function WellnessApp() {
       return;
     }
 
+    if (actionIdOrLabel === "retake-quiz") {
+      const questionnaireRecord = getQuestionnaireRecord(user.email);
+      setQuestionnaireAnswers(
+        questionnaireRecord?.answers?.length === questionnaireItems.length
+          ? questionnaireRecord.answers
+          : Array(questionnaireItems.length).fill(null)
+      );
+      setCurrentScreen("questionnaire");
+      setShowProfileMenu(false);
+      return;
+    }
+
     const label = actionLabel ?? actionIdOrLabel;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
@@ -684,6 +730,7 @@ function WellnessApp() {
 
     const totalScore = questionnaireAnswers.reduce((sum, answer) => sum + answer, 0);
     const result = getQuestionnaireSummary(totalScore);
+    const previousQuestionnaireRecord = getQuestionnaireRecord(user.email);
     saveQuestionnaireRecord(user.email, {
       answers: questionnaireAnswers,
       totalScore,
@@ -696,7 +743,7 @@ function WellnessApp() {
         ? `${result.level}: ${result.message} Resources: ${result.resources.join(" | ")}`
         : `${result.level}: ${result.message}`
     );
-    boostMentalMeter(profileActionBoost, "Completed login check-in quiz");
+    syncMentalMeterWithQuestionnaire(result, previousQuestionnaireRecord?.result);
     setCurrentScreen("home");
   };
 

@@ -17,7 +17,7 @@ export const homeActions = [
   { id: "journal", label: "Journal" },
   { id: "todo-list", label: "To Do List" },
   { id: "local-therapy", label: "Local Therapy" },
-  { id: "button-5", label: "Button 5" },
+  { id: "retake-quiz", label: "Retake Quiz" },
   { id: "button-6", label: "Button 6" },
 ];
 
