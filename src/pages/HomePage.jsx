@@ -1,4 +1,5 @@
 import { homeActions } from "../data/appData";
+import { useEffect, useRef, useState } from "react";
 
 function HomePage({
   homeMessage,
@@ -14,6 +15,24 @@ function HomePage({
   showProfileMenu,
   user,
 }) {
+  const [showMeterInfo, setShowMeterInfo] = useState(false);
+  const meterInfoRef = useRef(null);
+
+  useEffect(() => {
+    if (!showMeterInfo) {
+      return;
+    }
+
+    const handleOutsideClick = (event) => {
+      if (!meterInfoRef.current?.contains(event.target)) {
+        setShowMeterInfo(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleOutsideClick);
+    return () => window.removeEventListener("mousedown", handleOutsideClick);
+  }, [showMeterInfo]);
+
   return (
     <main className="app-shell">
       <section className="home-viewport">
@@ -79,7 +98,26 @@ function HomePage({
               <div className={`mental-meter-card glass-card ${mentalMeter.stage.tone}`}>
                 <div className="mental-meter-topline">
                   <div>
-                    <p className="mental-meter-label">Mental meter</p>
+                    <div className="mental-meter-label-row" ref={meterInfoRef}>
+                      <p className="mental-meter-label">Mental meter</p>
+                      <button
+                        type="button"
+                        className="meter-info-button"
+                        aria-label="About the mental meter"
+                        aria-expanded={showMeterInfo}
+                        onClick={() => setShowMeterInfo((current) => !current)}
+                      >
+                        i
+                      </button>
+                      {showMeterInfo ? (
+                        <div className="meter-info-popover" role="note">
+                          <p>
+                            This is a simple momentum score. It increases when you log in and complete activities, and
+                            slowly drops if you go inactive for a while.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
                     <h2>{mentalMeter.stage.label}</h2>
                   </div>
                   <p className="mental-meter-score">{Math.round(mentalMeter.score)}%</p>
@@ -116,24 +154,16 @@ function HomePage({
 
               <div className="home-content">
                 <div className="home-copy glass-card">
-                  <h2>Your homepage</h2>
+                  <h2>About this app</h2>
                   <p>
-                    This is the clean signed-in destination for now. The login page comes first, and this homepage is
-                    the next screen after the user gets in.
+                    Welcome to your wellness hub. Use the side buttons to journal, plan tasks, and build mind maps —
+                    small check-ins that help you stay grounded.
                   </p>
-                  <p className="small-note">{homeMessage}</p>
-                </div>
-
-                <div className="feature-card glass-card">
-                  <p className="feature-label">Sanity check</p>
-                  <h3>{user.name}</h3>
-                  <p>{user.email}</p>
-                  <p className="small-note">
-                    Use the side buttons or the profile menu and you should see a quick "{`x works`}" message appear.
+                  <p>
+                    The Mental Meter is a simple momentum score: it rises when you show up and do activities, and can
+                    dip if you go quiet for a while.
                   </p>
-                  <button type="button" onClick={onLogout}>
-                    Log out
-                  </button>
+                  {homeMessage ? <p className="small-note">{homeMessage}</p> : null}
                 </div>
               </div>
             </section>

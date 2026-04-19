@@ -222,7 +222,7 @@ button:disabled {
 
 .home-main-grid {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 336px minmax(0, 1fr);
   gap: 1.5rem;
   flex: 1;
 }
@@ -240,7 +240,7 @@ button:disabled {
 }
 
 .rail-button {
-  min-height: 64px;
+  min-height: 78px;
   padding: 0.35rem;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.14);
@@ -392,6 +392,49 @@ button:disabled {
   letter-spacing: 0.12em;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.mental-meter-label-row {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.meter-info-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.meter-info-popover {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 0;
+  z-index: 30;
+  width: min(320px, 70vw);
+  padding: 0.85rem 0.9rem;
+  border-radius: 18px;
+  background: rgba(8, 20, 18, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.meter-info-popover p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(248, 250, 252, 0.92);
 }
 
 .mental-meter-card h2 {

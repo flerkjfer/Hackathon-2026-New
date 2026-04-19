@@ -229,7 +229,7 @@ function WellnessApp() {
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [homeMessage, setHomeMessage] = useState("Welcome back. Click any button for a quick sanity check.");
+  const [homeMessage, setHomeMessage] = useState("");
   const [setupForm, setSetupForm] = useState(emptySetupForm);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
