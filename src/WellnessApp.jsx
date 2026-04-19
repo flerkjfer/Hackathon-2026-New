@@ -3,6 +3,7 @@ import AccountSetupModal from "./components/AccountSetupModal";
 import SettingsModal from "./components/SettingsModal";
 import HomePage from "./pages/HomePage";
 import JournalPage from "./pages/JournalPage";
+import LocalTherapyPage from "./pages/LocalTherapyPage";
 import LoginPage from "./pages/LoginPage";
 import MindMapPage from "./pages/MindMapPage";
 import TodoListPage from "./pages/TodoListPage";
@@ -522,6 +523,13 @@ function WellnessApp() {
       return;
     }
 
+    if (actionIdOrLabel === "local-therapy") {
+      boostMentalMeter(homeActionBoost, "Opened local therapy search");
+      setCurrentScreen("therapy");
+      setShowProfileMenu(false);
+      return;
+    }
+
     const label = actionLabel ?? actionIdOrLabel;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
@@ -701,6 +709,11 @@ function WellnessApp() {
           onJournalSave={handleJournalSave}
           onLogout={handleLogout}
           user={user}
+        />
+      ) : currentScreen === "therapy" ? (
+        <LocalTherapyPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
         />
       ) : (
         <TodoListPage

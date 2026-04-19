@@ -771,6 +771,148 @@ button:disabled {
   color: #f8fafc;
 }
 
+.therapy-viewport {
+  position: relative;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.therapy-surface {
+  position: relative;
+  z-index: 1;
+  min-height: calc(100vh - 4rem);
+}
+
+.therapy-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr);
+  gap: 1.5rem;
+}
+
+.therapy-search,
+.therapy-results {
+  padding: 1.5rem;
+  border-radius: 32px;
+  align-self: start;
+}
+
+.therapy-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.therapy-zip-field {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.therapy-zip-field input {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.therapy-status {
+  margin-top: 1rem;
+}
+
+.therapy-origin-card {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.therapy-origin-card span,
+.therapy-origin-card strong {
+  display: block;
+}
+
+.therapy-origin-card span {
+  color: #dbeafe;
+  font-size: 0.8rem;
+}
+
+.therapy-origin-card strong {
+  margin-top: 0.25rem;
+}
+
+.therapy-origin-card p {
+  margin: 0.45rem 0 0;
+  color: #dbeafe;
+}
+
+.therapy-service-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+
+.therapy-service-card {
+  padding: 1.1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.therapy-service-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.therapy-service-card h3 {
+  margin: 0;
+}
+
+.therapy-distance {
+  margin: 0 0 0.3rem;
+  color: #bbf7d0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.therapy-availability {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.18);
+  color: #99f6e4;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.therapy-address,
+.therapy-phone {
+  margin: 0.55rem 0 0;
+  color: #e2e8f0;
+}
+
+.therapy-specialty-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.therapy-specialty-pill {
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(191, 219, 254, 0.14);
+  color: #dbeafe;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .journal-viewport {
   position: relative;
   min-height: 100vh;
@@ -1383,6 +1525,7 @@ button:disabled {
 }
 
 @media (max-width: 1100px) {
+  .therapy-layout,
   .journal-layout,
   .mindmap-layout,
   .todo-layout {
@@ -1415,6 +1558,7 @@ button:disabled {
     padding: 1rem;
   }
 
+  .therapy-viewport,
   .journal-viewport,
   .mindmap-viewport,
   .todo-viewport {
@@ -1440,6 +1584,10 @@ button:disabled {
 
 @media (max-width: 640px) {
   .mental-meter-topline {
+    flex-direction: column;
+  }
+
+  .therapy-service-topline {
     flex-direction: column;
   }
 
