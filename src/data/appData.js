@@ -4,6 +4,7 @@ export const onboardingKeyPrefix = "wellness-user-onboarding";
 export const mentalMeterKeyPrefix = "wellness-user-mental-meter";
 export const journalEntriesKeyPrefix = "wellness-user-journal";
 export const settingsKeyPrefix = "wellness-user-settings";
+export const questionnaireKeyPrefix = "wellness-user-questionnaire";
 
 export const demoCredentials = {
   email: "guest@example.com",
@@ -153,4 +154,31 @@ export const localTherapyServices = [
     availability: "After-work appointments available",
     phone: "(646) 555-0129",
   },
+];
+
+export const questionnaireItems = [
+  "How often have you felt little interest or pleasure in things you usually enjoy?",
+  "How often have you felt down, hopeless, or like things won't get better?",
+  "How often have you had trouble falling or staying asleep, or slept too much?",
+  "How often have you felt tired or had very little energy, even after resting?",
+  "How often have you felt nervous, anxious, or on edge?",
+  "How often have you had trouble concentrating on everyday tasks?",
+  "How often have you felt bad about yourself or like you've let others down?",
+  "How often have you found it hard to stop worrying?",
+  "How often have you felt lonely or disconnected from the people around you?",
+  "How often have you felt overwhelmed by your daily responsibilities?",
+];
+
+export const questionnaireScale = [
+  { value: 0, label: "0", description: "Not at all" },
+  { value: 1, label: "1", description: "Several days" },
+  { value: 2, label: "2", description: "More than half the days" },
+  { value: 3, label: "3", description: "Nearly every day" },
+];
+
+export const questionnaireResourceItems = [
+  "988 Suicide & Crisis Lifeline: Call or text 988",
+  "Reach out to a trusted friend, family member, counselor, or therapist",
+  "Use the Local Therapy page to look for nearby in-person support",
+  "If you feel in immediate danger, call 911 or go to the nearest emergency room",
 ];

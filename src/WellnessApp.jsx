@@ -6,6 +6,7 @@ import JournalPage from "./pages/JournalPage";
 import LocalTherapyPage from "./pages/LocalTherapyPage";
 import LoginPage from "./pages/LoginPage";
 import MindMapPage from "./pages/MindMapPage";
+import QuestionPage from "./pages/QuestionPage";
 import TodoListPage from "./pages/TodoListPage";
 import {
   accountsKey,
@@ -13,6 +14,9 @@ import {
   journalEntriesKeyPrefix,
   mentalMeterKeyPrefix,
   onboardingKeyPrefix,
+  questionnaireItems,
+  questionnaireKeyPrefix,
+  questionnaireResourceItems,
   quoteOptions,
   settingsKeyPrefix,
   sessionKey,
@@ -219,6 +223,46 @@ function saveUserSettings(email, settings) {
   window.localStorage.setItem(getSettingsKey(email), JSON.stringify(settings));
 }
 
+function getQuestionnaireKey(email) {
+  return `${questionnaireKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getQuestionnaireRecord(email) {
+  const savedRecord = window.localStorage.getItem(getQuestionnaireKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveQuestionnaireRecord(email, record) {
+  window.localStorage.setItem(getQuestionnaireKey(email), JSON.stringify(record));
+}
+
+function getQuestionnaireSummary(score) {
+  if (score >= 20) {
+    return {
+      level: "Needs support",
+      message:
+        "Your answers suggest you may be carrying a heavy mental-health load right now. Reaching out is the first step to getting help.",
+      resources: questionnaireResourceItems,
+    };
+  }
+
+  if (score >= 10) {
+    return {
+      level: "Moderate strain",
+      message:
+        "Your answers suggest a moderate amount of emotional strain today. It may help to slow down, check in with yourself, and use the support tools available in the app.",
+      resources: [],
+    };
+  }
+
+  return {
+    level: "Lighter strain",
+    message:
+      "Your answers suggest a lighter level of mental-health strain right now. Keep paying attention to the routines and supports that help you stay grounded.",
+    resources: [],
+  };
+}
+
 function WellnessApp() {
   const [authMode, setAuthMode] = useState("login");
   const [form, setForm] = useState({
@@ -238,13 +282,17 @@ function WellnessApp() {
   const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
   const [userSettings, setUserSettings] = useState(defaultSettings);
   const [displayName, setDisplayName] = useState("");
-  const [currentScreen, setCurrentScreen] = useState("home");
+  const [currentScreen, setCurrentScreen] = useState("questionnaire");
   const [journalEntry, setJournalEntry] = useState("");
   const [selectedJournalDate, setSelectedJournalDate] = useState(getTodayStamp());
   const [journalRecord, setJournalRecord] = useState({
     entries: {},
     lastEntryDate: "",
   });
+  const [questionnaireAnswers, setQuestionnaireAnswers] = useState(
+    () => Array(questionnaireItems.length).fill(null)
+  );
+  const [questionnaireResult, setQuestionnaireResult] = useState(null);
   const [mentalMeter, setMentalMeter] = useState(() => {
     const baseMeter = createBaseMeter();
     return {
@@ -273,6 +321,14 @@ function WellnessApp() {
       setJournalRecord(nextJournalRecord);
       setSelectedJournalDate(getTodayStamp());
       setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      const questionnaireRecord = getQuestionnaireRecord(sessionUser.email);
+      setQuestionnaireAnswers(
+        questionnaireRecord?.answers?.length === questionnaireItems.length
+          ? questionnaireRecord.answers
+          : Array(questionnaireItems.length).fill(null)
+      );
+      setQuestionnaireResult(questionnaireRecord?.result ?? null);
+      setCurrentScreen("questionnaire");
       const meterRecord = recordLoginActivity(sessionUser.email);
       setMentalMeter({
         ...meterRecord,
@@ -310,6 +366,14 @@ function WellnessApp() {
     setJournalRecord(nextJournalRecord);
     setSelectedJournalDate(getTodayStamp());
     setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+    const questionnaireRecord = getQuestionnaireRecord(sessionUser.email);
+    setQuestionnaireAnswers(
+      questionnaireRecord?.answers?.length === questionnaireItems.length
+        ? questionnaireRecord.answers
+        : Array(questionnaireItems.length).fill(null)
+    );
+    setQuestionnaireResult(questionnaireRecord?.result ?? null);
+    setCurrentScreen("questionnaire");
     const meterRecord = recordLoginActivity(sessionUser.email);
     setMentalMeter({
       ...meterRecord,
@@ -413,6 +477,8 @@ function WellnessApp() {
     setSetupForm(emptySetupForm);
     setUserSettings(defaultSettings);
     setDisplayName("");
+    setQuestionnaireAnswers(Array(questionnaireItems.length).fill(null));
+    setQuestionnaireResult(null);
     setJournalEntry("");
     setSelectedJournalDate(getTodayStamp());
     setJournalRecord({
@@ -598,6 +664,42 @@ function WellnessApp() {
     boostMentalMeter(setupCompleteBoost, "Completed account setup");
   };
 
+  const handleQuestionnaireAnswerChange = (index, value) => {
+    setQuestionnaireAnswers((currentAnswers) =>
+      currentAnswers.map((currentValue, currentIndex) =>
+        currentIndex === index ? value : currentValue
+      )
+    );
+  };
+
+  const handleQuestionnaireSubmit = () => {
+    if (!user) {
+      return;
+    }
+
+    if (questionnaireAnswers.some((answer) => answer === null)) {
+      setHomeMessage("Please answer all quiz questions before continuing.");
+      return;
+    }
+
+    const totalScore = questionnaireAnswers.reduce((sum, answer) => sum + answer, 0);
+    const result = getQuestionnaireSummary(totalScore);
+    saveQuestionnaireRecord(user.email, {
+      answers: questionnaireAnswers,
+      totalScore,
+      result,
+      submittedAt: new Date().toISOString(),
+    });
+    setQuestionnaireResult(result);
+    setHomeMessage(
+      result.resources.length > 0
+        ? `${result.level}: ${result.message} Resources: ${result.resources.join(" | ")}`
+        : `${result.level}: ${result.message}`
+    );
+    boostMentalMeter(profileActionBoost, "Completed login check-in quiz");
+    setCurrentScreen("home");
+  };
+
   const handleJournalChange = (event) => {
     setJournalEntry(event.target.value);
   };
@@ -672,7 +774,16 @@ function WellnessApp() {
 
   return (
     <>
-      {currentScreen === "home" ? (
+      {currentScreen === "questionnaire" ? (
+        <QuestionPage
+          answers={questionnaireAnswers}
+          onAnswerChange={handleQuestionnaireAnswerChange}
+          onLogout={handleLogout}
+          onSubmit={handleQuestionnaireSubmit}
+          result={questionnaireResult}
+          user={user}
+        />
+      ) : currentScreen === "home" ? (
         <HomePage
           homeMessage={homeMessage}
           needsAccountSetup={needsAccountSetup}
