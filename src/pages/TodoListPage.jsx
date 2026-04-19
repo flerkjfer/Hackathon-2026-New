@@ -151,9 +151,9 @@ function TodoListPage({ onBackHome, onLogout, onTaskCompleted, user }) {
 
   return (
     <main className="app-shell">
-      <section className="mindmap-viewport">
+      <section className="todo-viewport">
         <div className="home-overlay" />
-        <section className="mindmap-surface">
+        <section className="todo-surface">
           <div className="home-topbar">
             <div>
               <p className="eyebrow">To Do List</p>
