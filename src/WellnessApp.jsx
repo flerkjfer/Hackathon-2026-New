@@ -6,6 +6,7 @@ import MindMapPage from "./pages/MindMapPage";
 import {
   accountsKey,
   demoCredentials,
+  mentalMeterKeyPrefix,
   onboardingKeyPrefix,
   quoteOptions,
   sessionKey,
@@ -17,6 +18,133 @@ const emptySetupForm = {
   gender: "",
   occupation: "",
 };
+
+const dailyLoginBoost = 1.1;
+const homeActionBoost = 0.7;
+const profileActionBoost = 0.4;
+const setupCompleteBoost = 1.4;
+const setupReturnBoost = 0.5;
+
+function createBaseMeter() {
+  return {
+    score: 18,
+    streak: 1,
+    activityCount: 0,
+    lastVisitDate: "",
+    lastAction: "Ready to begin",
+  };
+}
+
+function clampMeterScore(value) {
+  return Math.max(0, Math.min(100, Number(value.toFixed(1))));
+}
+
+function getTodayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDayDifference(previousStamp, nextStamp) {
+  if (!previousStamp || !nextStamp) {
+    return null;
+  }
+
+  const previousDate = new Date(`${previousStamp}T00:00:00`);
+  const nextDate = new Date(`${nextStamp}T00:00:00`);
+  return Math.round((nextDate - previousDate) / 86400000);
+}
+
+function getMentalMeterKey(email) {
+  return `${mentalMeterKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getMentalMeterRecord(email) {
+  const savedRecord = window.localStorage.getItem(getMentalMeterKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveMentalMeterRecord(email, record) {
+  window.localStorage.setItem(getMentalMeterKey(email), JSON.stringify(record));
+}
+
+function applyMeterActivity(currentRecord, amount, action, options = {}) {
+  const today = getTodayStamp();
+  const baseRecord = currentRecord ?? createBaseMeter();
+  const updatedRecord = {
+    ...baseRecord,
+    score: clampMeterScore(baseRecord.score + amount),
+    activityCount: baseRecord.activityCount + 1,
+    lastAction: action,
+    lastVisitDate: options.updateVisitDate ? today : baseRecord.lastVisitDate,
+    streak: options.nextStreak ?? baseRecord.streak,
+  };
+
+  return updatedRecord;
+}
+
+function recordLoginActivity(email) {
+  const savedRecord = getMentalMeterRecord(email);
+  const today = getTodayStamp();
+
+  if (!savedRecord) {
+    const firstRecord = {
+      ...createBaseMeter(),
+      score: clampMeterScore(createBaseMeter().score + dailyLoginBoost),
+      activityCount: 1,
+      streak: 1,
+      lastVisitDate: today,
+      lastAction: "Daily login check-in",
+    };
+
+    saveMentalMeterRecord(email, firstRecord);
+    return firstRecord;
+  }
+
+  const dayDifference = getDayDifference(savedRecord.lastVisitDate, today);
+
+  if (!dayDifference || dayDifference <= 0) {
+    return savedRecord;
+  }
+
+  const updatedRecord = applyMeterActivity(savedRecord, dailyLoginBoost, "Daily login check-in", {
+    updateVisitDate: true,
+    nextStreak: dayDifference === 1 ? savedRecord.streak + 1 : 1,
+  });
+
+  saveMentalMeterRecord(email, updatedRecord);
+  return updatedRecord;
+}
+
+function getMentalMeterStage(score) {
+  if (score >= 82) {
+    return {
+      label: "Calm focus",
+      description: "You have a steady rhythm and a strong sense of momentum.",
+      tone: "meter-stage-peak",
+    };
+  }
+
+  if (score >= 60) {
+    return {
+      label: "Moving upward",
+      description: "Your consistency is showing. Keep stacking small check-ins.",
+      tone: "meter-stage-rising",
+    };
+  }
+
+  if (score >= 35) {
+    return {
+      label: "Finding balance",
+      description: "You are building a healthier pace one action at a time.",
+      tone: "meter-stage-steady",
+    };
+  }
+
+  return {
+    label: "Getting started",
+    description: "The meter rises slowly, so each login and activity still matters.",
+    tone: "meter-stage-low",
+  };
+}
 
 function getAccounts() {
   const savedAccounts = window.localStorage.getItem(accountsKey);
@@ -56,6 +184,13 @@ function WellnessApp() {
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
   const [currentScreen, setCurrentScreen] = useState("home");
+  const [mentalMeter, setMentalMeter] = useState(() => {
+    const baseMeter = createBaseMeter();
+    return {
+      ...baseMeter,
+      stage: getMentalMeterStage(baseMeter.score),
+    };
+  });
 
   const quote = useMemo(() => {
     const index = Math.floor(Math.random() * quoteOptions.length);
@@ -71,6 +206,11 @@ function WellnessApp() {
       setNeedsAccountSetup(!onboardingRecord?.completed);
       setShowSetupModal(!onboardingRecord);
       setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+      const meterRecord = recordLoginActivity(sessionUser.email);
+      setMentalMeter({
+        ...meterRecord,
+        stage: getMentalMeterStage(meterRecord.score),
+      });
     }
   }, []);
 
@@ -91,6 +231,25 @@ function WellnessApp() {
     setNeedsAccountSetup(!onboardingRecord?.completed);
     setShowSetupModal(!onboardingRecord);
     setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    const meterRecord = recordLoginActivity(sessionUser.email);
+    setMentalMeter({
+      ...meterRecord,
+      stage: getMentalMeterStage(meterRecord.score),
+    });
+  };
+
+  const boostMentalMeter = (amount, action) => {
+    if (!user) {
+      return;
+    }
+
+    const currentRecord = getMentalMeterRecord(user.email) ?? createBaseMeter();
+    const updatedRecord = applyMeterActivity(currentRecord, amount, action);
+    saveMentalMeterRecord(user.email, updatedRecord);
+    setMentalMeter({
+      ...updatedRecord,
+      stage: getMentalMeterStage(updatedRecord.score),
+    });
   };
 
   const handleSubmit = (event) => {
@@ -171,11 +330,16 @@ function WellnessApp() {
     setShowSetupModal(false);
     setNeedsAccountSetup(false);
     setSetupForm(emptySetupForm);
+    setMentalMeter({
+      ...createBaseMeter(),
+      stage: getMentalMeterStage(createBaseMeter().score),
+    });
     window.localStorage.removeItem(sessionKey);
   };
 
   const handleHomeAction = (action) => {
     if (typeof action === "object" && action.id === "mind-maps") {
+      boostMentalMeter(homeActionBoost, "Opened mind maps");
       setCurrentScreen("mindmaps");
       setShowProfileMenu(false);
       return;
@@ -184,6 +348,10 @@ function WellnessApp() {
     const label = typeof action === "string" ? action : action.label;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
+    boostMentalMeter(
+      typeof action === "string" ? profileActionBoost : homeActionBoost,
+      `Used ${label}`
+    );
   };
 
   const handleSetupChange = (event) => {
@@ -219,6 +387,7 @@ function WellnessApp() {
     setShowProfileMenu(false);
     setSetupForm(emptySetupForm);
     setHomeMessage("Account setup skipped for now. You can finish it later from the avatar menu.");
+    boostMentalMeter(setupReturnBoost, "Checked account setup");
   };
 
   const handleSetupSubmit = (event) => {
@@ -241,6 +410,7 @@ function WellnessApp() {
     setShowProfileMenu(false);
     setSetupForm(emptySetupForm);
     setHomeMessage("Account setup complete.");
+    boostMentalMeter(setupCompleteBoost, "Completed account setup");
   };
 
   if (!user) {
@@ -277,6 +447,7 @@ function WellnessApp() {
           quote={quote}
           showProfileMenu={showProfileMenu}
           user={user}
+          mentalMeter={mentalMeter}
         />
       ) : (
         <MindMapPage

@@ -2,6 +2,7 @@ import { homeActions } from "../data/appData";
 
 function HomePage({
   homeMessage,
+  mentalMeter,
   needsAccountSetup,
   onCompleteAccountSetup,
   onHomeAction,
@@ -75,6 +76,44 @@ function HomePage({
               <div className="quote-card">
                 <p className="quote-label">Positive quote</p>
                 <blockquote>"{quote}"</blockquote>
+              </div>
+
+              <div className={`mental-meter-card glass-card ${mentalMeter.stage.tone}`}>
+                <div className="mental-meter-topline">
+                  <div>
+                    <p className="mental-meter-label">Mental meter</p>
+                    <h2>{mentalMeter.stage.label}</h2>
+                  </div>
+                  <p className="mental-meter-score">{Math.round(mentalMeter.score)}%</p>
+                </div>
+
+                <div
+                  className="mental-meter-track"
+                  role="progressbar"
+                  aria-label="Mental meter progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={Math.round(mentalMeter.score)}
+                >
+                  <div className="mental-meter-fill" style={{ width: `${mentalMeter.score}%` }} />
+                </div>
+
+                <p className="mental-meter-copy">{mentalMeter.stage.description}</p>
+
+                <div className="mental-meter-stats">
+                  <div className="mental-stat-card">
+                    <span>Last boost</span>
+                    <strong>{mentalMeter.lastAction}</strong>
+                  </div>
+                  <div className="mental-stat-card">
+                    <span>Current streak</span>
+                    <strong>{mentalMeter.streak} day{mentalMeter.streak === 1 ? "" : "s"}</strong>
+                  </div>
+                  <div className="mental-stat-card">
+                    <span>Activity count</span>
+                    <strong>{mentalMeter.activityCount} check-ins</strong>
+                  </div>
+                </div>
               </div>
 
               <div className="home-content">
