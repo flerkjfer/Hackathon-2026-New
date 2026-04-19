@@ -180,7 +180,15 @@ function loadJournals(email) {
 
   try {
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+    const journals = Array.isArray(parsed) ? parsed : [];
+    const isAutoStarterSet =
+      journals.length === 4 &&
+      journals.every(
+        (journal) =>
+          !String(journal.text ?? "").trim() &&
+          /^Journal [1-4]$/.test(String(journal.title ?? "").trim())
+      );
+    return isAutoStarterSet ? [] : journals;
   } catch (error) {
     window.localStorage.removeItem(getJournalsKey(email));
     return [];
@@ -215,6 +223,7 @@ function migrateLegacyJournal(email) {
     updatedAt: new Date().toISOString(),
   };
 }
+
 
 function getAccounts() {
   const savedAccounts = window.localStorage.getItem(accountsKey);
@@ -339,7 +348,8 @@ function WellnessApp() {
       setUserSettings(getUserSettings(sessionUser.email));
       setDisplayName(sessionUser.name ?? "");
       const loaded = loadJournals(sessionUser.email);
-      const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(sessionUser.email)].filter(Boolean);
+      const legacy = migrateLegacyJournal(sessionUser.email);
+      const nextJournals = loaded.length > 0 ? loaded : legacy ? [legacy] : [];
       if (nextJournals.length > 0 && loaded.length === 0) {
         saveJournals(sessionUser.email, nextJournals);
       }
@@ -388,7 +398,8 @@ function WellnessApp() {
     setUserSettings(getUserSettings(sessionUser.email));
     setDisplayName(sessionUser.name ?? "");
     const loaded = loadJournals(sessionUser.email);
-    const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(sessionUser.email)].filter(Boolean);
+    const legacy = migrateLegacyJournal(sessionUser.email);
+    const nextJournals = loaded.length > 0 ? loaded : legacy ? [legacy] : [];
     if (nextJournals.length > 0 && loaded.length === 0) {
       saveJournals(sessionUser.email, nextJournals);
     }
@@ -606,7 +617,8 @@ function WellnessApp() {
 
     if (actionIdOrLabel === "journal") {
       const loaded = loadJournals(user.email);
-      const nextJournals = loaded.length > 0 ? loaded : [migrateLegacyJournal(user.email)].filter(Boolean);
+      const legacy = migrateLegacyJournal(user.email);
+      const nextJournals = loaded.length > 0 ? loaded : legacy ? [legacy] : [];
       if (nextJournals.length > 0 && loaded.length === 0) {
         saveJournals(user.email, nextJournals);
       }

@@ -6,12 +6,9 @@ function LoginPage({ authMode, error, form, onChange, onSubmit, onSwitchMode }) 
       <section className="auth-overlay" />
       <section className="auth-layout">
         <div className="auth-copy">
-          <p className="eyebrow">Mindful Space</p>
-          <h1>A calmer first screen before the rest of the app.</h1>
-          <p className="hero-copy">
-            Start with a clean login page, get into the homepage, and leave the deeper features for later once the core
-            flow feels right.
-          </p>
+          <p className="eyebrow">Welcome</p>
+          <h1>Your calm place to reset and refocus.</h1>
+          <p className="hero-copy">Log in to see your home, journals, mind maps, and to-do list.</p>
           <div className="demo-card">
             <p className="feature-label">Demo login</p>
             <p>Email: {demoCredentials.email}</p>
