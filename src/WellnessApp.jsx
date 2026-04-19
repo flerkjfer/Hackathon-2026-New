@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import AccountSetupModal from "./components/AccountSetupModal";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import MindMapPage from "./pages/MindMapPage";
 import {
   accountsKey,
   demoCredentials,
@@ -54,6 +55,7 @@ function WellnessApp() {
   const [setupForm, setSetupForm] = useState(emptySetupForm);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState("home");
 
   const quote = useMemo(() => {
     const index = Math.floor(Math.random() * quoteOptions.length);
@@ -164,6 +166,7 @@ function WellnessApp() {
 
   const handleLogout = () => {
     setUser(null);
+    setCurrentScreen("home");
     setShowProfileMenu(false);
     setShowSetupModal(false);
     setNeedsAccountSetup(false);
@@ -171,7 +174,14 @@ function WellnessApp() {
     window.localStorage.removeItem(sessionKey);
   };
 
-  const handleHomeAction = (label) => {
+  const handleHomeAction = (action) => {
+    if (typeof action === "object" && action.id === "mind-maps") {
+      setCurrentScreen("mindmaps");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    const label = typeof action === "string" ? action : action.label;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
   };
@@ -251,22 +261,30 @@ function WellnessApp() {
 
   return (
     <>
-      <HomePage
-        homeMessage={homeMessage}
-        needsAccountSetup={needsAccountSetup}
-        onCompleteAccountSetup={() => {
-          const onboardingRecord = getOnboardingRecord(user.email);
-          setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
-          setShowSetupModal(true);
-          setShowProfileMenu(false);
-        }}
-        onHomeAction={handleHomeAction}
-        onLogout={handleLogout}
-        onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
-        quote={quote}
-        showProfileMenu={showProfileMenu}
-        user={user}
-      />
+      {currentScreen === "home" ? (
+        <HomePage
+          homeMessage={homeMessage}
+          needsAccountSetup={needsAccountSetup}
+          onCompleteAccountSetup={() => {
+            const onboardingRecord = getOnboardingRecord(user.email);
+            setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+            setShowSetupModal(true);
+            setShowProfileMenu(false);
+          }}
+          onHomeAction={handleHomeAction}
+          onLogout={handleLogout}
+          onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
+          quote={quote}
+          showProfileMenu={showProfileMenu}
+          user={user}
+        />
+      ) : (
+        <MindMapPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+          user={user}
+        />
+      )}
       {showSetupModal ? (
         <AccountSetupModal
           form={setupForm}

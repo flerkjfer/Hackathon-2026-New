@@ -64,7 +64,7 @@ function HomePage({
                   key={action.id}
                   type="button"
                   className="rail-button"
-                  onClick={() => onHomeAction(action.label)}
+                  onClick={() => onHomeAction(action)}
                 >
                   <span className="rail-button-inner">{action.label}</span>
                 </button>

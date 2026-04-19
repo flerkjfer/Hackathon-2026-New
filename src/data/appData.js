@@ -9,13 +9,15 @@ export const demoCredentials = {
 };
 
 export const homeActions = [
-  { id: "button-1", label: "Button 1" },
+  { id: "mind-maps", label: "Mind Maps" },
   { id: "button-2", label: "Button 2" },
   { id: "button-3", label: "Button 3" },
   { id: "button-4", label: "Button 4" },
   { id: "button-5", label: "Button 5" },
   { id: "button-6", label: "Button 6" },
 ];
+
+export const mindMapsKeyPrefix = "wellness-user-mind-maps";
 
 export const quoteOptions = [
   "Small steps still count as progress.",
