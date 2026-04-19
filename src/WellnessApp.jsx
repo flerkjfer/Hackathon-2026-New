@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import AccountSetupModal from "./components/AccountSetupModal";
 import SettingsModal from "./components/SettingsModal";
+import AboutPage from "./pages/AboutPage";
 import HomePage from "./pages/HomePage";
 import JournalPage from "./pages/JournalPage";
 import LocalTherapyPage from "./pages/LocalTherapyPage";
@@ -314,9 +315,22 @@ function WellnessApp() {
     };
   });
 
-  const quote = useMemo(() => {
-    const index = Math.floor(Math.random() * quoteOptions.length);
-    return quoteOptions[index];
+  const [quoteIndex, setQuoteIndex] = useState(() =>
+    quoteOptions.length > 0 ? Math.floor(Math.random() * quoteOptions.length) : 0
+  );
+
+  const quote = quoteOptions[quoteIndex] ?? "Support starts with one honest check-in.";
+
+  useEffect(() => {
+    if (quoteOptions.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setQuoteIndex((currentIndex) => (currentIndex + 1) % quoteOptions.length);
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -642,6 +656,12 @@ function WellnessApp() {
       return;
     }
 
+    if (actionIdOrLabel === "about-us") {
+      setCurrentScreen("about");
+      setShowProfileMenu(false);
+      return;
+    }
+
     const label = actionLabel ?? actionIdOrLabel;
     setHomeMessage(`${label} works.`);
     setShowProfileMenu(false);
@@ -870,6 +890,11 @@ function WellnessApp() {
         />
       ) : currentScreen === "therapy" ? (
         <LocalTherapyPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+        />
+      ) : currentScreen === "about" ? (
+        <AboutPage
           onBackHome={() => setCurrentScreen("home")}
           onLogout={handleLogout}
         />

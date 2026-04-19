@@ -18,7 +18,7 @@ export const homeActions = [
   { id: "todo-list", label: "To Do List" },
   { id: "local-therapy", label: "Local Therapy" },
   { id: "retake-quiz", label: "Retake Quiz" },
-  { id: "button-6", label: "Button 6" },
+  { id: "about-us", label: "About Us" },
 ];
 
 export const mindMapsKeyPrefix = "wellness-user-mind-maps";
