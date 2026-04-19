@@ -1,0 +1,952 @@
+import { useEffect, useState } from "react";
+import AccountSetupModal from "./components/AccountSetupModal";
+import SettingsModal from "./components/SettingsModal";
+import AboutPage from "./pages/AboutPage";
+import HomePage from "./pages/HomePage";
+import JournalPage from "./pages/JournalPage";
+import LocalTherapyPage from "./pages/LocalTherapyPage";
+import LoginPage from "./pages/LoginPage";
+import MindMapPage from "./pages/MindMapPage";
+import QuestionPage from "./pages/QuestionPage";
+import TodoListPage from "./pages/TodoListPage";
+import {
+  accountsKey,
+  demoCredentials,
+  journalEntriesKeyPrefix,
+  mentalMeterKeyPrefix,
+  onboardingKeyPrefix,
+  questionnaireItems,
+  questionnaireKeyPrefix,
+  questionnaireResourceItems,
+  quoteOptions,
+  settingsKeyPrefix,
+  sessionKey,
+} from "./data/appData";
+
+const emptySetupForm = {
+  birthDate: "",
+  location: "",
+  gender: "",
+  occupation: "",
+};
+
+const dailyLoginBoost = 1.1;
+const homeActionBoost = 0.7;
+const profileActionBoost = 0.4;
+const setupCompleteBoost = 1.4;
+const setupReturnBoost = 0.5;
+const todoCompletionBoost = 1.8;
+const journalEntryBoost = 1.8;
+const inactivityPenalty = 5;
+
+const defaultSettings = {
+  cornerStyle: "rounded",
+  calmMode: false,
+};
+
+function createBaseMeter() {
+  return {
+    score: 18,
+    streak: 1,
+    activityCount: 0,
+    lastVisitDate: "",
+    lastAction: "Ready to begin",
+  };
+}
+
+function clampMeterScore(value) {
+  return Math.max(0, Math.min(100, Number(value.toFixed(1))));
+}
+
+function getTodayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getDayDifference(previousStamp, nextStamp) {
+  if (!previousStamp || !nextStamp) {
+    return null;
+  }
+
+  const previousDate = new Date(`${previousStamp}T00:00:00`);
+  const nextDate = new Date(`${nextStamp}T00:00:00`);
+  return Math.round((nextDate - previousDate) / 86400000);
+}
+
+function getMentalMeterKey(email) {
+  return `${mentalMeterKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getMentalMeterRecord(email) {
+  const savedRecord = window.localStorage.getItem(getMentalMeterKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveMentalMeterRecord(email, record) {
+  window.localStorage.setItem(getMentalMeterKey(email), JSON.stringify(record));
+}
+
+function applyMeterActivity(currentRecord, amount, action, options = {}) {
+  const today = getTodayStamp();
+  const baseRecord = currentRecord ?? createBaseMeter();
+  const updatedRecord = {
+    ...baseRecord,
+    score: clampMeterScore(baseRecord.score + amount),
+    activityCount: baseRecord.activityCount + 1,
+    lastAction: action,
+    lastVisitDate: options.updateVisitDate ? today : baseRecord.lastVisitDate,
+    streak: options.nextStreak ?? baseRecord.streak,
+  };
+
+  return updatedRecord;
+}
+
+function recordLoginActivity(email) {
+  const savedRecord = getMentalMeterRecord(email);
+  const today = getTodayStamp();
+
+  if (!savedRecord) {
+    const firstRecord = {
+      ...createBaseMeter(),
+      score: clampMeterScore(createBaseMeter().score + dailyLoginBoost),
+      activityCount: 1,
+      streak: 1,
+      lastVisitDate: today,
+      lastAction: "Daily login check-in",
+    };
+
+    saveMentalMeterRecord(email, firstRecord);
+    return firstRecord;
+  }
+
+  const dayDifference = getDayDifference(savedRecord.lastVisitDate, today);
+
+  if (!dayDifference || dayDifference <= 0) {
+    return savedRecord;
+  }
+
+  const inactivityDrop = dayDifference > 7 ? inactivityPenalty : 0;
+  const updatedRecord = applyMeterActivity(
+    savedRecord,
+    dailyLoginBoost - inactivityDrop,
+    dayDifference > 7 ? "Returned after a long break" : "Daily login check-in",
+    {
+    updateVisitDate: true,
+    nextStreak: dayDifference === 1 ? savedRecord.streak + 1 : 1,
+    }
+  );
+
+  saveMentalMeterRecord(email, updatedRecord);
+  return updatedRecord;
+}
+
+function getMentalMeterStage(score) {
+  if (score >= 82) {
+    return {
+      label: "Calm focus",
+      description: "You have a steady rhythm and a strong sense of momentum.",
+      tone: "meter-stage-peak",
+    };
+  }
+
+  if (score >= 60) {
+    return {
+      label: "Moving upward",
+      description: "Your consistency is showing. Keep stacking small check-ins.",
+      tone: "meter-stage-rising",
+    };
+  }
+
+  if (score >= 35) {
+    return {
+      label: "Finding balance",
+      description: "You are building a healthier pace one action at a time.",
+      tone: "meter-stage-steady",
+    };
+  }
+
+  return {
+    label: "Getting started",
+    description: "The meter rises slowly, so each login and activity still matters.",
+    tone: "meter-stage-low",
+  };
+}
+
+function getJournalEntriesKey(email) {
+  return `${journalEntriesKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getJournalRecord(email) {
+  const savedRecord = window.localStorage.getItem(getJournalEntriesKey(email));
+  return savedRecord
+    ? JSON.parse(savedRecord)
+    : {
+        entries: {},
+        lastEntryDate: "",
+      };
+}
+
+function saveJournalRecord(email, record) {
+  window.localStorage.setItem(getJournalEntriesKey(email), JSON.stringify(record));
+}
+
+function getAccounts() {
+  const savedAccounts = window.localStorage.getItem(accountsKey);
+  return savedAccounts ? JSON.parse(savedAccounts) : {};
+}
+
+function saveAccounts(accounts) {
+  window.localStorage.setItem(accountsKey, JSON.stringify(accounts));
+}
+
+function getOnboardingKey(email) {
+  return `${onboardingKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getOnboardingRecord(email) {
+  const savedRecord = window.localStorage.getItem(getOnboardingKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveOnboardingRecord(email, record) {
+  window.localStorage.setItem(getOnboardingKey(email), JSON.stringify(record));
+}
+
+function getSettingsKey(email) {
+  return `${settingsKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getUserSettings(email) {
+  const savedSettings = window.localStorage.getItem(getSettingsKey(email));
+  return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
+}
+
+function saveUserSettings(email, settings) {
+  window.localStorage.setItem(getSettingsKey(email), JSON.stringify(settings));
+}
+
+function getQuestionnaireKey(email) {
+  return `${questionnaireKeyPrefix}:${email.toLowerCase()}`;
+}
+
+function getQuestionnaireRecord(email) {
+  const savedRecord = window.localStorage.getItem(getQuestionnaireKey(email));
+  return savedRecord ? JSON.parse(savedRecord) : null;
+}
+
+function saveQuestionnaireRecord(email, record) {
+  window.localStorage.setItem(getQuestionnaireKey(email), JSON.stringify(record));
+}
+
+function getQuestionnaireSummary(score) {
+  if (score >= 20) {
+    return {
+      level: "Needs support",
+      message:
+        "Your answers suggest you may be carrying a heavy mental-health load right now. Reaching out is the first step to getting help.",
+      resources: questionnaireResourceItems,
+      meterImpact: -6,
+    };
+  }
+
+  if (score >= 10) {
+    return {
+      level: "Moderate strain",
+      message:
+        "Your answers suggest a moderate amount of emotional strain today. It may help to slow down, check in with yourself, and use the support tools available in the app.",
+      resources: [],
+      meterImpact: -2,
+    };
+  }
+
+  return {
+    level: "Lighter strain",
+    message:
+      "Your answers suggest a lighter level of mental-health strain right now. Keep paying attention to the routines and supports that help you stay grounded.",
+    resources: [],
+    meterImpact: 1,
+  };
+}
+
+function shouldShowQuestionnaire(questionnaireRecord) {
+  if (!questionnaireRecord?.submittedAt) {
+    return true;
+  }
+
+  const submittedStamp = questionnaireRecord.submittedAt.slice(0, 10);
+  const daysSinceSubmission = getDayDifference(submittedStamp, getTodayStamp());
+  return daysSinceSubmission === null || daysSinceSubmission >= 7;
+}
+
+function WellnessApp() {
+  const [authMode, setAuthMode] = useState("login");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [homeMessage, setHomeMessage] = useState("");
+  const [setupForm, setSetupForm] = useState(emptySetupForm);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [needsAccountSetup, setNeedsAccountSetup] = useState(false);
+  const [userSettings, setUserSettings] = useState(defaultSettings);
+  const [displayName, setDisplayName] = useState("");
+  const [currentScreen, setCurrentScreen] = useState("questionnaire");
+  const [journalEntry, setJournalEntry] = useState("");
+  const [selectedJournalDate, setSelectedJournalDate] = useState(getTodayStamp());
+  const [journalRecord, setJournalRecord] = useState({
+    entries: {},
+    lastEntryDate: "",
+  });
+  const [questionnaireAnswers, setQuestionnaireAnswers] = useState(
+    () => Array(questionnaireItems.length).fill(null)
+  );
+  const [questionnaireResult, setQuestionnaireResult] = useState(null);
+  const [mentalMeter, setMentalMeter] = useState(() => {
+    const baseMeter = createBaseMeter();
+    return {
+      ...baseMeter,
+      stage: getMentalMeterStage(baseMeter.score),
+    };
+  });
+
+  const [quoteIndex, setQuoteIndex] = useState(() =>
+    quoteOptions.length > 0 ? Math.floor(Math.random() * quoteOptions.length) : 0
+  );
+
+  const quote = quoteOptions[quoteIndex] ?? "Support starts with one honest check-in.";
+
+  useEffect(() => {
+    if (quoteOptions.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setQuoteIndex((currentIndex) => (currentIndex + 1) % quoteOptions.length);
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    const savedSession = window.localStorage.getItem(sessionKey);
+    if (savedSession) {
+      const sessionUser = JSON.parse(savedSession);
+      setUser(sessionUser);
+      const onboardingRecord = getOnboardingRecord(sessionUser.email);
+      setNeedsAccountSetup(!onboardingRecord?.completed);
+      setShowSetupModal(!onboardingRecord);
+      setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+      setUserSettings(getUserSettings(sessionUser.email));
+      setDisplayName(sessionUser.name ?? "");
+      const nextJournalRecord = getJournalRecord(sessionUser.email);
+      setJournalRecord(nextJournalRecord);
+      setSelectedJournalDate(getTodayStamp());
+      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      const questionnaireRecord = getQuestionnaireRecord(sessionUser.email);
+      setQuestionnaireAnswers(
+        questionnaireRecord?.answers?.length === questionnaireItems.length
+          ? questionnaireRecord.answers
+          : Array(questionnaireItems.length).fill(null)
+      );
+      setQuestionnaireResult(questionnaireRecord?.result ?? null);
+      setCurrentScreen(shouldShowQuestionnaire(questionnaireRecord) ? "questionnaire" : "home");
+      const meterRecord = recordLoginActivity(sessionUser.email);
+      setMentalMeter({
+        ...meterRecord,
+        stage: getMentalMeterStage(meterRecord.score),
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("calm-mode", userSettings.calmMode);
+    document.body.classList.toggle("ui-sharp", userSettings.cornerStyle === "sharp");
+    document.body.classList.toggle("ui-rounded", userSettings.cornerStyle === "rounded");
+  }, [userSettings]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const persistSession = (sessionUser) => {
+    setUser(sessionUser);
+    window.localStorage.setItem(sessionKey, JSON.stringify(sessionUser));
+    setError("");
+    setShowProfileMenu(false);
+    const onboardingRecord = getOnboardingRecord(sessionUser.email);
+    setNeedsAccountSetup(!onboardingRecord?.completed);
+    setShowSetupModal(!onboardingRecord);
+    setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    setUserSettings(getUserSettings(sessionUser.email));
+    setDisplayName(sessionUser.name ?? "");
+    const nextJournalRecord = getJournalRecord(sessionUser.email);
+    setJournalRecord(nextJournalRecord);
+    setSelectedJournalDate(getTodayStamp());
+    setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+    const questionnaireRecord = getQuestionnaireRecord(sessionUser.email);
+    setQuestionnaireAnswers(
+      questionnaireRecord?.answers?.length === questionnaireItems.length
+        ? questionnaireRecord.answers
+        : Array(questionnaireItems.length).fill(null)
+    );
+    setQuestionnaireResult(questionnaireRecord?.result ?? null);
+    setCurrentScreen(shouldShowQuestionnaire(questionnaireRecord) ? "questionnaire" : "home");
+    const meterRecord = recordLoginActivity(sessionUser.email);
+    setMentalMeter({
+      ...meterRecord,
+      stage: getMentalMeterStage(meterRecord.score),
+    });
+  };
+
+  const boostMentalMeter = (amount, action) => {
+    if (!user) {
+      return;
+    }
+
+    const currentRecord = getMentalMeterRecord(user.email) ?? createBaseMeter();
+    const updatedRecord = applyMeterActivity(currentRecord, amount, action);
+    saveMentalMeterRecord(user.email, updatedRecord);
+    setMentalMeter({
+      ...updatedRecord,
+      stage: getMentalMeterStage(updatedRecord.score),
+    });
+  };
+
+  const syncMentalMeterWithQuestionnaire = (nextResult, previousResult) => {
+    if (!user) {
+      return;
+    }
+
+    const previousImpact = previousResult?.meterImpact ?? 0;
+    const adjustment = nextResult.meterImpact - previousImpact;
+    const currentRecord = getMentalMeterRecord(user.email) ?? createBaseMeter();
+    const updatedRecord = applyMeterActivity(
+      currentRecord,
+      adjustment,
+      `Quiz updated: ${nextResult.level}`
+    );
+
+    saveMentalMeterRecord(user.email, updatedRecord);
+    setMentalMeter({
+      ...updatedRecord,
+      stage: getMentalMeterStage(updatedRecord.score),
+    });
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    if (!form.email.trim() || !form.password.trim()) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    if (authMode === "signup") {
+      if (!form.name.trim()) {
+        setError("Please enter your name.");
+        return;
+      }
+
+      if (form.password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
+      }
+
+      if (form.password !== form.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+
+      const accounts = getAccounts();
+      const normalizedEmail = form.email.trim().toLowerCase();
+
+      if (accounts[normalizedEmail]) {
+        setError("An account with that email already exists.");
+        return;
+      }
+
+      const newUser = {
+        name: form.name.trim(),
+        email: normalizedEmail,
+      };
+
+      accounts[normalizedEmail] = {
+        ...newUser,
+        password: form.password,
+      };
+      saveAccounts(accounts);
+      persistSession(newUser);
+      return;
+    }
+
+    const normalizedEmail = form.email.trim().toLowerCase();
+    const accounts = getAccounts();
+    const savedAccount = accounts[normalizedEmail];
+    const isDemoLogin =
+      normalizedEmail === demoCredentials.email && form.password === demoCredentials.password;
+
+    if (savedAccount && savedAccount.password === form.password) {
+      persistSession({
+        name: savedAccount.name,
+        email: savedAccount.email,
+      });
+      return;
+    }
+
+    if (!isDemoLogin) {
+      setError("Use the demo login shown below or sign up with a new account.");
+      return;
+    }
+
+    persistSession({
+      name: demoCredentials.name,
+      email: demoCredentials.email,
+    });
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setCurrentScreen("home");
+    setShowProfileMenu(false);
+    setShowSetupModal(false);
+    setShowAccountModal(false);
+    setShowSettingsModal(false);
+    setNeedsAccountSetup(false);
+    setSetupForm(emptySetupForm);
+    setUserSettings(defaultSettings);
+    setDisplayName("");
+    setQuestionnaireAnswers(Array(questionnaireItems.length).fill(null));
+    setQuestionnaireResult(null);
+    setJournalEntry("");
+    setSelectedJournalDate(getTodayStamp());
+    setJournalRecord({
+      entries: {},
+      lastEntryDate: "",
+    });
+    setMentalMeter({
+      ...createBaseMeter(),
+      stage: getMentalMeterStage(createBaseMeter().score),
+    });
+    window.localStorage.removeItem(sessionKey);
+  };
+
+  const handleAccountEditOpen = () => {
+    const onboardingRecord = getOnboardingRecord(user.email);
+    setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+    setDisplayName(user.name ?? "");
+    setShowAccountModal(true);
+    setShowProfileMenu(false);
+    boostMentalMeter(profileActionBoost, "Opened account details");
+  };
+
+  const handleAccountEditClose = () => {
+    setShowAccountModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+  };
+
+  const handleAccountEditSubmit = (event) => {
+    event.preventDefault();
+
+    const nextDisplayName = displayName.trim() || user.name;
+    const accounts = getAccounts();
+    const normalizedEmail = user.email.toLowerCase();
+    const currentAccount = accounts[normalizedEmail] ?? {
+      name: user.name,
+      email: normalizedEmail,
+      password: normalizedEmail === demoCredentials.email ? demoCredentials.password : "",
+    };
+
+    accounts[normalizedEmail] = {
+      ...currentAccount,
+      name: nextDisplayName,
+    };
+    saveAccounts(accounts);
+    const sessionUser = { ...user, name: nextDisplayName };
+    setUser(sessionUser);
+    window.localStorage.setItem(sessionKey, JSON.stringify(sessionUser));
+
+    const isComplete = Object.values(setupForm).every((value) => value.trim() !== "");
+    saveOnboardingRecord(user.email, {
+      completed: isComplete,
+      skipped: !isComplete,
+      profile: setupForm,
+    });
+
+    setNeedsAccountSetup(!isComplete);
+    setShowAccountModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage(isComplete ? "Account details updated." : "Account details saved. Finish later anytime.");
+    boostMentalMeter(profileActionBoost, "Updated account details");
+  };
+
+  const handleSettingsOpen = () => {
+    setShowSettingsModal(true);
+    setShowProfileMenu(false);
+    boostMentalMeter(profileActionBoost, "Opened settings");
+  };
+
+  const handleSettingsClose = () => {
+    setShowSettingsModal(false);
+    setShowProfileMenu(false);
+  };
+
+  const handleSettingsSubmit = (event) => {
+    event.preventDefault();
+    saveUserSettings(user.email, userSettings);
+    setShowSettingsModal(false);
+    setShowProfileMenu(false);
+    setHomeMessage("Settings saved.");
+    boostMentalMeter(profileActionBoost, "Saved settings");
+  };
+
+  const handleHomeAction = (actionIdOrLabel, actionLabel) => {
+    if (actionIdOrLabel === "mind-maps") {
+      boostMentalMeter(homeActionBoost, "Opened mind maps");
+      setCurrentScreen("mindmaps");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "todo-list") {
+      boostMentalMeter(homeActionBoost, "Opened to do list");
+      setCurrentScreen("todo");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "journal") {
+      const nextJournalRecord = getJournalRecord(user.email);
+      setJournalRecord(nextJournalRecord);
+      setSelectedJournalDate(getTodayStamp());
+      setJournalEntry(nextJournalRecord.entries[getTodayStamp()] ?? "");
+      boostMentalMeter(homeActionBoost, "Opened journal");
+      setCurrentScreen("journal");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "local-therapy") {
+      boostMentalMeter(homeActionBoost, "Opened local therapy search");
+      setCurrentScreen("therapy");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "retake-quiz") {
+      const questionnaireRecord = getQuestionnaireRecord(user.email);
+      setQuestionnaireAnswers(
+        questionnaireRecord?.answers?.length === questionnaireItems.length
+          ? questionnaireRecord.answers
+          : Array(questionnaireItems.length).fill(null)
+      );
+      setCurrentScreen("questionnaire");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    if (actionIdOrLabel === "about-us") {
+      setCurrentScreen("about");
+      setShowProfileMenu(false);
+      return;
+    }
+
+    const label = actionLabel ?? actionIdOrLabel;
+    setHomeMessage(`${label} works.`);
+    setShowProfileMenu(false);
+    boostMentalMeter(
+      actionLabel ? homeActionBoost : profileActionBoost,
+      `Used ${label}`
+    );
+  };
+
+  const handleSetupChange = (event) => {
+    const { name, value } = event.target;
+    setSetupForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  };
+
+  const handleSetupClose = () => {
+    if (!user) {
+      return;
+    }
+
+    const existingRecord = getOnboardingRecord(user.email);
+
+    if (!existingRecord) {
+      saveOnboardingRecord(user.email, {
+        completed: false,
+        skipped: true,
+        profile: null,
+      });
+    } else if (!existingRecord.completed) {
+      saveOnboardingRecord(user.email, {
+        ...existingRecord,
+        skipped: true,
+      });
+    }
+
+    setNeedsAccountSetup(true);
+    setShowSetupModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage("Account setup skipped for now. You can finish it later from the avatar menu.");
+    boostMentalMeter(setupReturnBoost, "Checked account setup");
+  };
+
+  const handleSetupSubmit = (event) => {
+    event.preventDefault();
+
+    const isComplete = Object.values(setupForm).every((value) => value.trim() !== "");
+    if (!isComplete || !user) {
+      setHomeMessage("Please complete all account setup questions before saving.");
+      return;
+    }
+
+    saveOnboardingRecord(user.email, {
+      completed: true,
+      skipped: false,
+      profile: setupForm,
+    });
+
+    setNeedsAccountSetup(false);
+    setShowSetupModal(false);
+    setShowProfileMenu(false);
+    setSetupForm(emptySetupForm);
+    setHomeMessage("Account setup complete.");
+    boostMentalMeter(setupCompleteBoost, "Completed account setup");
+  };
+
+  const handleQuestionnaireAnswerChange = (index, value) => {
+    setQuestionnaireAnswers((currentAnswers) =>
+      currentAnswers.map((currentValue, currentIndex) =>
+        currentIndex === index ? value : currentValue
+      )
+    );
+  };
+
+  const handleQuestionnaireSubmit = () => {
+    if (!user) {
+      return;
+    }
+
+    if (questionnaireAnswers.some((answer) => answer === null)) {
+      setHomeMessage("Please answer all quiz questions before continuing.");
+      return;
+    }
+
+    const totalScore = questionnaireAnswers.reduce((sum, answer) => sum + answer, 0);
+    const result = getQuestionnaireSummary(totalScore);
+    const previousQuestionnaireRecord = getQuestionnaireRecord(user.email);
+    saveQuestionnaireRecord(user.email, {
+      answers: questionnaireAnswers,
+      totalScore,
+      result,
+      submittedAt: new Date().toISOString(),
+    });
+    setQuestionnaireResult(result);
+    setHomeMessage(
+      result.resources.length > 0
+        ? `${result.level}: ${result.message} Resources: ${result.resources.join(" | ")}`
+        : `${result.level}: ${result.message}`
+    );
+    syncMentalMeterWithQuestionnaire(result, previousQuestionnaireRecord?.result);
+    setCurrentScreen("home");
+  };
+
+  const handleJournalChange = (event) => {
+    setJournalEntry(event.target.value);
+  };
+
+  const handleJournalDateSelect = (date) => {
+    if (!user || !date) {
+      return;
+    }
+
+    const nextJournalRecord = getJournalRecord(user.email);
+    setJournalRecord(nextJournalRecord);
+    setSelectedJournalDate(date);
+    setJournalEntry(nextJournalRecord.entries[date] ?? "");
+  };
+
+  const handleJournalSave = () => {
+    if (!user) {
+      return;
+    }
+
+    const trimmedEntry = journalEntry.trim();
+
+    if (!trimmedEntry) {
+      setHomeMessage("Write a few thoughts first so your journal entry can be saved.");
+      return;
+    }
+
+    const entryDate = selectedJournalDate || getTodayStamp();
+    const currentJournalRecord = getJournalRecord(user.email);
+    const alreadySavedForDate = Boolean(currentJournalRecord.entries[entryDate]?.trim());
+    const updatedJournalRecord = {
+      ...currentJournalRecord,
+      entries: {
+        ...currentJournalRecord.entries,
+        [entryDate]: trimmedEntry,
+      },
+      lastEntryDate:
+        !currentJournalRecord.lastEntryDate || entryDate > currentJournalRecord.lastEntryDate
+          ? entryDate
+          : currentJournalRecord.lastEntryDate,
+    };
+
+    saveJournalRecord(user.email, updatedJournalRecord);
+    setJournalRecord(updatedJournalRecord);
+    setJournalEntry(trimmedEntry);
+    setHomeMessage(
+      alreadySavedForDate
+        ? `Journal entry for ${entryDate} was updated.`
+        : `Journal entry for ${entryDate} was saved.`
+    );
+
+    if (entryDate === getTodayStamp() && !alreadySavedForDate) {
+      boostMentalMeter(journalEntryBoost, "Completed a daily journal entry");
+    }
+  };
+
+  if (!user) {
+    return (
+      <LoginPage
+        authMode={authMode}
+        form={form}
+        error={error}
+        onChange={handleChange}
+        onSubmit={handleSubmit}
+        onSwitchMode={(mode) => {
+          setAuthMode(mode);
+          setError("");
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      {currentScreen === "questionnaire" ? (
+        <QuestionPage
+          answers={questionnaireAnswers}
+          onAnswerChange={handleQuestionnaireAnswerChange}
+          onLogout={handleLogout}
+          onSubmit={handleQuestionnaireSubmit}
+          result={questionnaireResult}
+          user={user}
+        />
+      ) : currentScreen === "home" ? (
+        <HomePage
+          homeMessage={homeMessage}
+          needsAccountSetup={needsAccountSetup}
+          onCompleteAccountSetup={() => {
+            const onboardingRecord = getOnboardingRecord(user.email);
+            setSetupForm(onboardingRecord?.profile ?? emptySetupForm);
+            setShowSetupModal(true);
+            setShowProfileMenu(false);
+          }}
+          onEditAccount={handleAccountEditOpen}
+          onHomeAction={handleHomeAction}
+          onLogout={handleLogout}
+          onOpenSettings={handleSettingsOpen}
+          onToggleProfileMenu={() => setShowProfileMenu((current) => !current)}
+          quote={quote}
+          showProfileMenu={showProfileMenu}
+          user={user}
+          mentalMeter={mentalMeter}
+        />
+      ) : currentScreen === "mindmaps" ? (
+        <MindMapPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+          user={user}
+        />
+      ) : currentScreen === "journal" ? (
+        <JournalPage
+          journalEntry={journalEntry}
+          journalRecord={journalRecord}
+          selectedJournalDate={selectedJournalDate}
+          onBackHome={() => setCurrentScreen("home")}
+          onJournalChange={handleJournalChange}
+          onJournalDateSelect={handleJournalDateSelect}
+          onJournalSave={handleJournalSave}
+          onLogout={handleLogout}
+          user={user}
+        />
+      ) : currentScreen === "therapy" ? (
+        <LocalTherapyPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+        />
+      ) : currentScreen === "about" ? (
+        <AboutPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+        />
+      ) : (
+        <TodoListPage
+          onBackHome={() => setCurrentScreen("home")}
+          onLogout={handleLogout}
+          onTaskCompleted={(taskTitle) => {
+            boostMentalMeter(todoCompletionBoost, `Completed task: ${taskTitle}`);
+          }}
+          user={user}
+        />
+      )}
+      {showSetupModal ? (
+        <AccountSetupModal
+          form={setupForm}
+          onChange={handleSetupChange}
+          onClose={handleSetupClose}
+          onSubmit={handleSetupSubmit}
+        />
+      ) : null}
+      {showAccountModal ? (
+        <AccountSetupModal
+          form={setupForm}
+          onChange={handleSetupChange}
+          onClose={handleAccountEditClose}
+          onSubmit={handleAccountEditSubmit}
+          title="Your account"
+          description="View and update your profile details anytime."
+          closeLabel="Close"
+        >
+          <label>
+            Display name
+            <input
+              type="text"
+              value={displayName}
+              placeholder="What should we call you?"
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </label>
+        </AccountSetupModal>
+      ) : null}
+      {showSettingsModal ? (
+        <SettingsModal
+          settings={userSettings}
+          onChange={(patch) => setUserSettings((current) => ({ ...current, ...patch }))}
+          onClose={handleSettingsClose}
+          onSubmit={handleSettingsSubmit}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export default WellnessApp;
