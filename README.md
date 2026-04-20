@@ -11,4 +11,3 @@ Built with modern tools and facilitated with SWE principles.
 Thank you for checking out our work.
 
 Link used for judging: https://flight-8ige.onrender.com/
-Polished link: (to be added) 
